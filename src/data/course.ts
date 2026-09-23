@@ -136,7 +136,7 @@ export const SONGS: Song[] = songConfigs.map((song) => ({
   tasks: (song.kind === 'fingerstyle' ? fingerstyleGoals.map(([title, why, cue, notes], index) => ({
     title: `${song.title} · ${title}`, why, section: song.route[Math.min(index, song.route.length - 1)].label,
     focus: index < 2 ? 'High-G 调弦 · G、C、E、A 弦' : `参考段落：${song.route[Math.min(index, song.route.length - 1)].label}`,
-    scoreCue: `${cue} 当前 TAB 是拾音自制技巧练习，不是原曲谱；完整编配请打开固定参考版本。`,
+    scoreCue: `${cue} 当前 TAB 是拾艺自制技巧练习，不是原曲谱；完整编配请打开固定参考版本。`,
     steps: index === 0
       ? ['把琴拿成演奏姿势，确认从上到下四根弦是 G、C、E、A（High-G）。', '看 TAB：一条横线是一根弦；0 表示空弦，数字 1、2、3 表示左手按第几品。', '按图从左到右弹四个空弦音，每个音听清再继续。']
       : index === 1
@@ -198,7 +198,7 @@ export const SONGS: Song[] = songConfigs.map((song) => ({
           ? '把旋律拆成小段、逐步加入伴奏音，既能听见曲子，也不会一次练太多。'
           : '和弦、旋律和节奏都直接标在下方谱卡里；分层练熟后再合起来。',
       focus: `${lesson.section} · ${song.kind === 'fingerstyle' ? '旋律 TAB 与伴奏音' : '和弦、旋律 TAB 与扫弦'}`,
-      scoreCue: `下方谱卡是“拾音教学编配”，已直接绘出今天要弹的小节。${song.kind === 'fingerstyle' ? '先看旋律音，再逐步加入伴奏音。' : '小节上方显示和弦，四线谱显示旋律 TAB，箭头显示扫弦方向。'}不需要打开或另找外部曲谱。`,
+      scoreCue: `下方谱卡是“拾艺教学编配”，已直接绘出今天要弹的小节。${song.kind === 'fingerstyle' ? '先看旋律音，再逐步加入伴奏音。' : '小节上方显示和弦，四线谱显示旋律 TAB，箭头显示扫弦方向。'}不需要打开或另找外部曲谱。`,
       steps: scoreSteps,
       simplifiedSteps: reducedScoreSteps,
       success: index === 7

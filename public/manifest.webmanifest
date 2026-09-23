@@ -1,14 +1,13 @@
 {
-  "name": "拾音 · 尤克里里练习",
-  "short_name": "拾音",
-  "description": "今天，只练下一小步。",
+  "name": "拾艺 · 技能学习手册",
+  "short_name": "拾艺",
+  "description": "今天，学会一项技能的下一小步。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f4eee9",
   "theme_color": "#68465f",
   "icons": [
-    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]
 }

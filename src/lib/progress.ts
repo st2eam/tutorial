@@ -1,36 +1,39 @@
+import { GUIDED_COURSES, type GuidedCourse, type GuidedLesson } from '../data/catalog'
 import { SONGS, type LessonTask, type Song } from '../data/course'
 
 export type TaskFeedback = 'easy' | 'hard' | 'not_mastered'
 export type HistoryEntry = {
   id: string
-  songId: string
+  courseId: string
   taskId: string
   taskTitle: string
   feedback: TaskFeedback
   at: string
 }
-export type SongProgress = {
+export type CourseProgress = {
   currentTaskId: string
   completedTaskIds: string[]
   reviewTaskId: string | null
   simplifiedTaskId: string | null
-  confirmedPlaying: boolean
-  confirmedSinging: boolean
+  completionChecks: string[]
   lastFeedback: TaskFeedback | null
+  lastStudiedAt: string
 }
 export type UserProgress = {
-  version: 1
-  activeSongId: string | null
-  songs: Record<string, SongProgress>
+  version: 2
+  activeCourseId: string | null
+  courses: Record<string, CourseProgress>
   history: HistoryEntry[]
 }
-export type ProgressBackup = { app: 'shiyin'; exportedAt: string; data: UserProgress }
+export type ProgressBackup = { app: 'shiyi'; version: 2; exportedAt: string; data: UserProgress }
 
-export const STORAGE_KEY = 'shiyin-progress-v1'
-export const emptyProgress = (): UserProgress => ({ version: 1, activeSongId: null, songs: {}, history: [] })
+export const STORAGE_KEY = 'shiyi-learning-progress-v1'
+export const LEGACY_STORAGE_KEY = 'shiyin-progress-v1'
+export const emptyProgress = (): UserProgress => ({ version: 2, activeCourseId: null, courses: {}, history: [] })
 
 export function loadProgress(): UserProgress {
   try {
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return emptyProgress()
     const parsed: unknown = JSON.parse(raw)
@@ -44,39 +47,84 @@ export function saveProgress(data: UserProgress) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ data })) } catch { /* storage can be disabled or full */ }
 }
 
-export function getSongProgress(data: UserProgress, song: Song): SongProgress {
-  return data.songs[song.id] ?? {
-    currentTaskId: song.tasks[0].id,
+export function getCourseProgress(data: UserProgress, courseId: string, firstTaskId: string): CourseProgress {
+  return data.courses[courseId] ?? {
+    currentTaskId: firstTaskId,
     completedTaskIds: [],
     reviewTaskId: null,
     simplifiedTaskId: null,
-    confirmedPlaying: false,
-    confirmedSinging: false,
+    completionChecks: [],
     lastFeedback: null,
+    lastStudiedAt: '',
   }
 }
 
-export function isSongCompleted(song: Song, item: SongProgress): boolean {
-  return song.kind === 'fingerstyle' ? item.confirmedPlaying : item.confirmedPlaying && item.confirmedSinging
+export function getSongProgress(data: UserProgress, song: Song): CourseProgress {
+  return getCourseProgress(data, song.id, song.tasks[0].id)
 }
 
-export function currentTask(song: Song, item: SongProgress): LessonTask {
+export function getGuidedProgress(data: UserProgress, course: GuidedCourse): CourseProgress {
+  return getCourseProgress(data, course.id, course.lessons[0].id)
+}
+
+export function isSongCompleted(song: Song, item: CourseProgress): boolean {
+  return song.kind === 'fingerstyle'
+    ? item.completionChecks.includes('playing')
+    : item.completionChecks.includes('playing') && item.completionChecks.includes('singing')
+}
+
+export function isGuidedCourseCompleted(course: GuidedCourse, item: CourseProgress): boolean {
+  return course.lessons.every((lesson) => item.completedTaskIds.includes(lesson.id))
+}
+
+export function currentTask(song: Song, item: CourseProgress): LessonTask {
   return song.tasks.find((task) => task.id === item.reviewTaskId)
     ?? song.tasks.find((task) => task.id === item.currentTaskId)
     ?? song.tasks[song.tasks.length - 1]
 }
 
+export function currentGuidedLesson(course: GuidedCourse, item: CourseProgress): GuidedLesson {
+  return course.lessons.find((lesson) => lesson.id === item.reviewTaskId)
+    ?? course.lessons.find((lesson) => lesson.id === item.currentTaskId)
+    ?? course.lessons[course.lessons.length - 1]
+}
+
 export function startSong(data: UserProgress, song: Song): UserProgress {
+  return startCourse(data, song.id, song.tasks[0].id)
+}
+
+export function startGuidedCourse(data: UserProgress, course: GuidedCourse): UserProgress {
+  return startCourse(data, course.id, course.lessons[0].id)
+}
+
+function startCourse(data: UserProgress, courseId: string, firstTaskId: string): UserProgress {
+  const item = getCourseProgress(data, courseId, firstTaskId)
   return {
     ...data,
-    activeSongId: song.id,
-    songs: { ...data.songs, [song.id]: getSongProgress(data, song) },
+    activeCourseId: courseId,
+    courses: { ...data.courses, [courseId]: { ...item, lastStudiedAt: new Date().toISOString() } },
   }
 }
 
 export function recordFeedback(data: UserProgress, song: Song, feedback: TaskFeedback): UserProgress {
-  const item = getSongProgress(data, song)
-  const task = currentTask(song, item)
+  return recordCourseFeedback(data, song.id, song.tasks, feedback)
+}
+
+export function recordGuidedFeedback(data: UserProgress, course: GuidedCourse, feedback: TaskFeedback): UserProgress {
+  return recordCourseFeedback(data, course.id, course.lessons, feedback)
+}
+
+function recordCourseFeedback(
+  data: UserProgress,
+  courseId: string,
+  tasks: Array<Pick<LessonTask | GuidedLesson, 'id' | 'title'>>,
+  feedback: TaskFeedback,
+): UserProgress {
+  const item = getCourseProgress(data, courseId, tasks[0].id)
+  const task = tasks.find((candidate) => candidate.id === item.reviewTaskId)
+    ?? tasks.find((candidate) => candidate.id === item.currentTaskId)
+    ?? tasks[tasks.length - 1]
+  const taskIndex = tasks.findIndex((candidate) => candidate.id === task.id)
   const isReview = item.reviewTaskId === task.id
   let completedTaskIds = item.completedTaskIds
   let currentTaskId = item.currentTaskId
@@ -91,68 +139,82 @@ export function recordFeedback(data: UserProgress, song: Song, feedback: TaskFee
     simplifiedTaskId = null
   } else {
     if (!completedTaskIds.includes(task.id)) completedTaskIds = [...completedTaskIds, task.id]
-    const next = song.tasks[task.stage]
-    if (next) currentTaskId = next.id
+    currentTaskId = tasks[taskIndex + 1]?.id ?? task.id
     simplifiedTaskId = null
     if (feedback === 'hard') reviewTaskId = task.id
   }
 
+  const at = new Date().toISOString()
   const entry: HistoryEntry = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    songId: song.id,
+    courseId,
     taskId: task.id,
     taskTitle: task.title,
     feedback,
-    at: new Date().toISOString(),
+    at,
   }
+  const nextItem: CourseProgress = { ...item, currentTaskId, completedTaskIds, reviewTaskId, simplifiedTaskId, lastFeedback: feedback, lastStudiedAt: at }
 
   return {
     ...data,
-    activeSongId: song.id,
-    songs: { ...data.songs, [song.id]: { ...item, currentTaskId, completedTaskIds, reviewTaskId, simplifiedTaskId, lastFeedback: feedback } },
+    activeCourseId: courseId,
+    courses: { ...data.courses, [courseId]: nextItem },
     history: [entry, ...data.history].slice(0, 120),
   }
 }
 
 export function markSongRoute(data: UserProgress, song: Song, route: 'playing' | 'singing'): UserProgress {
   const item = getSongProgress(data, song)
-  const update = route === 'playing' ? { confirmedPlaying: !item.confirmedPlaying } : { confirmedSinging: !item.confirmedSinging }
-  return { ...data, songs: { ...data.songs, [song.id]: { ...item, ...update } } }
+  const checks = new Set(item.completionChecks)
+  if (checks.has(route)) checks.delete(route)
+  else checks.add(route)
+  return {
+    ...data,
+    courses: { ...data.courses, [song.id]: { ...item, completionChecks: [...checks], lastStudiedAt: new Date().toISOString() } },
+  }
 }
 
 export function exportBackup(data: UserProgress): ProgressBackup {
-  return { app: 'shiyin', exportedAt: new Date().toISOString(), data }
+  return { app: 'shiyi', version: 2, exportedAt: new Date().toISOString(), data }
 }
 
 export function validateProgressBackup(value: unknown): UserProgress | null {
   if (!value || typeof value !== 'object') return null
   const backup = value as Partial<ProgressBackup>
-  if (backup.app !== 'shiyin' || !validateProgress({ data: backup.data })) return null
+  if (backup.app !== 'shiyi' || backup.version !== 2 || !validateProgress({ data: backup.data })) return null
   return backup.data ?? null
 }
 
 function validateProgress(value: unknown): value is { data: UserProgress } {
   if (!value || typeof value !== 'object') return false
   const data = (value as { data?: Partial<UserProgress> }).data
-  if (!data || data.version !== 1 || !(data.activeSongId === null || SONGS.some((song) => song.id === data.activeSongId)) || !data.songs || typeof data.songs !== 'object' || !Array.isArray(data.history)) return false
+  const validCourseIds = new Set([...SONGS.map((song) => song.id), ...GUIDED_COURSES.map((course) => course.id)])
+  if (!data || data.version !== 2 || !(data.activeCourseId === null || (typeof data.activeCourseId === 'string' && validCourseIds.has(data.activeCourseId))) || !data.courses || typeof data.courses !== 'object' || !Array.isArray(data.history)) return false
 
-  for (const [songId, rawItem] of Object.entries(data.songs)) {
-    const song = SONGS.find((candidate) => candidate.id === songId)
-    if (!song || !rawItem || typeof rawItem !== 'object') return false
-    const item = rawItem as Partial<SongProgress>
-    const validTaskId = (taskId: unknown) => typeof taskId === 'string' && song.tasks.some((task) => task.id === taskId)
+  for (const [courseId, rawItem] of Object.entries(data.courses)) {
+    if (!validCourseIds.has(courseId) || !rawItem || typeof rawItem !== 'object') return false
+    const item = rawItem as Partial<CourseProgress>
+    const validTaskIds = getTaskIds(courseId)
+    const validTaskId = (taskId: unknown) => typeof taskId === 'string' && validTaskIds.includes(taskId)
     if (!validTaskId(item.currentTaskId) || !Array.isArray(item.completedTaskIds) || !item.completedTaskIds.every(validTaskId)) return false
     if (!(item.reviewTaskId === null || validTaskId(item.reviewTaskId)) || !(item.simplifiedTaskId === null || validTaskId(item.simplifiedTaskId))) return false
-    if (typeof item.confirmedPlaying !== 'boolean' || typeof item.confirmedSinging !== 'boolean') return false
-    if (!(item.lastFeedback === null || isFeedback(item.lastFeedback))) return false
+    if (!Array.isArray(item.completionChecks) || !item.completionChecks.every((check) => typeof check === 'string')) return false
+    if (!(item.lastFeedback === null || isFeedback(item.lastFeedback)) || typeof item.lastStudiedAt !== 'string') return false
   }
 
   return data.history.every((rawEntry) => {
     if (!rawEntry || typeof rawEntry !== 'object') return false
     const entry = rawEntry as Partial<HistoryEntry>
-    const song = SONGS.find((candidate) => candidate.id === entry.songId)
-    return typeof entry.id === 'string' && Boolean(song?.tasks.some((task) => task.id === entry.taskId)) && typeof entry.taskTitle === 'string' && typeof entry.at === 'string' && isFeedback(entry.feedback)
+    return typeof entry.id === 'string' && typeof entry.courseId === 'string' && validCourseIds.has(entry.courseId)
+      && typeof entry.taskId === 'string' && getTaskIds(entry.courseId).includes(entry.taskId) && typeof entry.taskTitle === 'string'
+      && typeof entry.at === 'string' && isFeedback(entry.feedback)
   })
+}
+
+function getTaskIds(courseId: string): string[] {
+  const song = SONGS.find((candidate) => candidate.id === courseId)
+  if (song) return song.tasks.map((task) => task.id)
+  return GUIDED_COURSES.find((course) => course.id === courseId)?.lessons.map((lesson) => lesson.id) ?? []
 }
 
 function isFeedback(value: unknown): value is TaskFeedback {

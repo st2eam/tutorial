@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { CHORDS, SONGS, STAGES, FINGERSTYLE_STAGES } from '../data/course'
+import { CATEGORIES, COURSES, GUIDED_COURSES, SONG_COURSES, SKILLS } from '../data/catalog'
 import { getSimplifiedMeasureIds, getTaskMeasureIds, SCORE_SHEETS, validateScoreSheet } from '../data/score-sheets'
-import { currentTask, emptyProgress, getSongProgress, isSongCompleted, markSongRoute, recordFeedback, startSong, validateProgressBackup } from './progress'
+import { currentGuidedLesson, currentTask, emptyProgress, getGuidedProgress, getSongProgress, isGuidedCourseCompleted, isSongCompleted, markSongRoute, recordFeedback, recordGuidedFeedback, startGuidedCourse, startSong, validateProgressBackup } from './progress'
 
 const song = SONGS[0]
 
@@ -13,7 +14,7 @@ describe('歌曲专属课程内容', () => {
     expect(anheqiao.bpm).toBe(65)
     expect(anheqiao.chords).toEqual(['C', 'D', 'Em', 'G'])
     expect(anheqiao.tasks[1].chords).toEqual(['C', 'D', 'Em', 'G'])
-    expect(anheqiao.tasks[0].scoreCue).toContain('拾音教学编配')
+    expect(anheqiao.tasks[0].scoreCue).toContain('拾艺教学编配')
     expect(anheqiao.tasks.every((task) => task.scoreCue.includes('不需要打开'))).toBe(true)
   })
 
@@ -97,7 +98,7 @@ describe('歌曲专属课程内容', () => {
     expect(solo.timeSignature).toBe('4/4')
     expect(solo.route[solo.route.length - 1]?.label).toBe('全曲 1–24 小节')
     expect(solo.courseNote).toContain('编号从 1 到 24')
-    expect(solo.tasks[0].scoreCue).toContain('拾音教学编配')
+    expect(solo.tasks[0].scoreCue).toContain('拾艺教学编配')
     expect(solo.tasks.every((task) => !task.tab)).toBe(true)
     expect(solo.tasks[1].id).toBe('castle-in-the-sky-stage-2')
     expect(solo.tasks[6].id).toBe('castle-in-the-sky-stage-7')
@@ -127,7 +128,7 @@ describe('歌曲专属课程内容', () => {
         expect(getTaskMeasureIds(sheet, task.stage).every((id) => Boolean(sheet.measures[id]))).toBe(true)
         expect(getSimplifiedMeasureIds(sheet, task.stage)).toHaveLength(1)
         expect(task.id).toBe(`${course.id}-stage-${task.stage}`)
-        expect(task.scoreCue).toContain('拾音教学编配')
+        expect(task.scoreCue).toContain('拾艺教学编配')
         expect(task.scoreCue).not.toMatch(/打开参考曲谱|打开外部曲谱/)
       }
       expect(getTaskMeasureIds(sheet, 8)).toEqual(sheet.playOrder)
@@ -176,8 +177,7 @@ describe('学习进度规则', () => {
     const both = markSongRoute(playing, song, 'singing')
     const item = getSongProgress(both, song)
 
-    expect(item.confirmedPlaying).toBe(true)
-    expect(item.confirmedSinging).toBe(true)
+    expect(item.completionChecks).toEqual(['playing', 'singing'])
     expect(isSongCompleted(song, item)).toBe(true)
   })
 
@@ -186,15 +186,64 @@ describe('学习进度规则', () => {
     const progress = startSong(emptyProgress(), solo)
     expect(isSongCompleted(solo, getSongProgress(progress, solo))).toBe(false)
     const completed = markSongRoute(progress, solo, 'playing')
-    expect(getSongProgress(completed, solo).confirmedSinging).toBe(false)
+    expect(getSongProgress(completed, solo).completionChecks).toEqual(['playing'])
     expect(isSongCompleted(solo, getSongProgress(completed, solo))).toBe(true)
   })
 
-  it('只接受拾音 v1 格式的备份', () => {
+  it('新品牌备份可校验，拒绝拾音旧备份和错误课程数据', () => {
     const data = startSong(emptyProgress(), song)
-    expect(validateProgressBackup({ app: 'shiyin', exportedAt: new Date().toISOString(), data })).toEqual(data)
+    expect(validateProgressBackup({ app: 'shiyi', version: 2, exportedAt: new Date().toISOString(), data })).toEqual(data)
     expect(validateProgressBackup({ app: 'other', data })).toBeNull()
-    expect(validateProgressBackup({ app: 'shiyin', data: { ...data, version: 9 } })).toBeNull()
-    expect(validateProgressBackup({ app: 'shiyin', data: { ...data, songs: { anheqiao: { currentTaskId: 'bad' } } } })).toBeNull()
+    expect(validateProgressBackup({ app: 'shiyin', version: 1, data })).toBeNull()
+    expect(validateProgressBackup({ app: 'shiyi', version: 2, data: { ...data, version: 9 } })).toBeNull()
+    expect(validateProgressBackup({ app: 'shiyi', version: 2, data: { ...data, courses: { anheqiao: { currentTaskId: 'bad' } } } })).toBeNull()
+  })
+
+  it('多门课程各自保存当前步骤和最近学习状态', () => {
+    const otherSong = SONGS[1]
+    const first = startSong(emptyProgress(), song)
+    const second = startSong(recordFeedback(first, song, 'easy'), otherSong)
+    expect(second.activeCourseId).toBe(otherSong.id)
+    expect(getSongProgress(second, song).completedTaskIds).toEqual([song.tasks[0].id])
+    expect(getSongProgress(second, otherSong).completedTaskIds).toEqual([])
+    expect(getSongProgress(second, song).lastStudiedAt).not.toBe('')
+  })
+})
+
+describe('技能目录与通用步骤课程', () => {
+  it('现有歌曲归在音乐分类的尤克里里技能下', () => {
+    expect(CATEGORIES.map((category) => category.id)).toContain('music')
+    expect(SKILLS.find((skill) => skill.id === 'ukulele')?.categoryId).toBe('music')
+    expect(SONG_COURSES).toHaveLength(7)
+    expect(COURSES).toHaveLength(7)
+    expect(SONG_COURSES.every((course) => course.skillId === 'ukulele' && course.categoryId === 'music')).toBe(true)
+    expect(GUIDED_COURSES).toHaveLength(0)
+  })
+
+  it('通用课程步骤可独立记录、降级、复习和完成', () => {
+    const course = {
+      type: 'guided' as const,
+      id: 'test-course',
+      category: { id: 'test-category', title: '测试分类', description: '测试用。' },
+      skill: { id: 'test-skill', categoryId: 'test-category', title: '测试技能', description: '测试用。' },
+      title: '测试课程',
+      description: '测试通用步骤。',
+      lessons: [
+        { id: 'test-01', title: '第一步', why: '原因。', steps: ['做第一件事。'], success: '完成第一件事。', simplifiedSteps: ['做更简单的事。'], simplifiedSuccess: '完成替代动作。' },
+        { id: 'test-02', title: '第二步', why: '原因。', steps: ['做第二件事。'], success: '完成第二件事。', simplifiedSteps: ['做更简单的事。'], simplifiedSuccess: '完成替代动作。' },
+      ],
+    }
+    const started = startGuidedCourse(emptyProgress(), course)
+    expect(currentGuidedLesson(course, getGuidedProgress(started, course)).id).toBe('test-01')
+    const simplified = recordGuidedFeedback(started, course, 'not_mastered')
+    expect(getGuidedProgress(simplified, course).simplifiedTaskId).toBe('test-01')
+    const afterHard = recordGuidedFeedback(started, course, 'hard')
+    expect(getGuidedProgress(afterHard, course).reviewTaskId).toBe('test-01')
+    const afterReview = recordGuidedFeedback(afterHard, course, 'easy')
+    const afterSecond = recordGuidedFeedback(afterReview, course, 'easy')
+    expect(isGuidedCourseCompleted(course, getGuidedProgress(afterSecond, course))).toBe(true)
+    expect(afterSecond.activeCourseId).toBe('test-course')
+    expect(afterSecond.courses['test-course'].completedTaskIds).toEqual(['test-01', 'test-02'])
+    expect(afterSecond.courses.anheqiao).toBeUndefined()
   })
 })
