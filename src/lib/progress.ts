@@ -56,6 +56,10 @@ export function getSongProgress(data: UserProgress, song: Song): SongProgress {
   }
 }
 
+export function isSongCompleted(song: Song, item: SongProgress): boolean {
+  return song.kind === 'fingerstyle' ? item.confirmedPlaying : item.confirmedPlaying && item.confirmedSinging
+}
+
 export function currentTask(song: Song, item: SongProgress): LessonTask {
   return song.tasks.find((task) => task.id === item.reviewTaskId)
     ?? song.tasks.find((task) => task.id === item.currentTaskId)
