@@ -1,4 +1,4 @@
-export type ChordName = 'C' | 'Am' | 'F' | 'G' | 'Em' | 'E' | 'D' | 'Dm' | 'Bm' | 'G7'
+export type ChordName = 'C' | 'Am' | 'F' | 'G' | 'Em' | 'E' | 'D' | 'Dm' | 'Bm' | 'G7' | 'Fmaj7' | 'Em7' | 'Dm7' | 'Cadd9' | 'Gsus2' | 'C7'
 
 export type LessonTask = {
   id: string
@@ -18,7 +18,14 @@ export type LessonTask = {
   tempoSteps: [number, number, number]
   simplifiedSteps: string[]
   simplifiedSuccess: string
+  scoreGuide: {
+    section: string
+    timeSignature: '4/4' | '6/8'
+    bars: { chord: ChordName; beats: string[] }[]
+  }
 }
+
+export type SongRouteStop = { label: string; repeatTo?: string }
 
 export type Song = {
   id: string
@@ -27,30 +34,33 @@ export type Song = {
   mood: string
   key: string
   bpm: number
+  timeSignature: '4/4' | '6/8'
   chords: ChordName[]
   intro: string
   fit: string
   fitLabel: string
-  palette: 'green' | 'clay' | 'blue'
+  palette: 'plum' | 'clay' | 'blue'
   sourceUrl: string
   scoreUrl: string
+  neteaseTrackId: number
+  route: SongRouteStop[]
   courseNote: string
   tasks: LessonTask[]
 }
 
 export const STAGES = ['认识歌曲', '单个和弦', '和弦转换', '节奏型', '分段慢练', '完整演奏', '加入演唱', '完整弹唱']
 
-type LessonDraft = Omit<LessonTask, 'id' | 'songId' | 'stage' | 'stageName' | 'tempoSteps'>
+type LessonDraft = Omit<LessonTask, 'id' | 'songId' | 'stage' | 'stageName' | 'tempoSteps' | 'scoreGuide'>
 
 const songConfigs: Omit<Song, 'tasks'>[] = [
-  { id: 'anheqiao', title: '安和桥', artist: '宋冬野', mood: '安静 · 民谣', key: 'G 调参考弹唱谱', bpm: 65, chords: ['G', 'D', 'Em', 'C'], intro: '先认段落，再从四个开放和弦走进完整弹唱。', fit: '最适合从这里起步', fitLabel: '推荐起点', palette: 'green', sourceUrl: 'https://music.163.com/#/search/m/?s=%E5%AE%89%E5%92%8C%E6%A1%A5&type=1', scoreUrl: 'https://www.ukuleleba.com/22127.html', courseNote: '课程围绕 G 调弹唱谱设计。段落中的具体和弦次序与节奏请以参考谱为准。' },
-  { id: 'chengdu', title: '成都', artist: '赵雷', mood: '温柔 · 民谣', key: 'C 指法 · 夹 2 品为原调', bpm: 91, chords: ['C', 'Em', 'F', 'G', 'Am', 'Dm'], intro: '先抓住六个和弦和长歌段落，再逐步连成弹唱。', fit: '适合练习和弦转换', fitLabel: '循序渐进', palette: 'clay', sourceUrl: 'https://music.163.com/#/search/m/?s=%E6%88%90%E9%83%BD&type=1', scoreUrl: 'https://www.ukuleleba.com/22137.html', courseNote: '参考编配为 C 指法、夹 2 品唱原调，标注六个和弦和一个伴奏音型；练手时可先不夹。' },
-  { id: 'nanshannan', title: '南山南', artist: '马頔', mood: '叙事 · 民谣', key: '按所选参考谱原调', bpm: 72, chords: ['C', 'D', 'Bm', 'Em', 'Am', 'G', 'G7'], intro: '先听懂段落的轻重，再挑战谱里的色彩和弦。', fit: '适合进入下一阶段', fitLabel: '稍有挑战', palette: 'blue', sourceUrl: 'https://music.163.com/#/search/m/?s=%E5%8D%97%E5%B1%B1%E5%8D%97&type=1', scoreUrl: 'https://www.ukuleleba.com/915.html', courseNote: '来源教学提到七和弦与挂留和弦；具体和弦因编配而异，跟随所选谱面，不混用不同版本。' },
+  { id: 'anheqiao', title: '安和桥', artist: '宋冬野', mood: '安静 · 民谣', key: 'G 调参考弹唱谱', bpm: 65, timeSignature: '4/4', chords: ['G', 'D', 'Em', 'C'], intro: '先认段落，再从四个开放和弦走进完整弹唱。', fit: '最适合从这里起步', fitLabel: '推荐起点', palette: 'plum', sourceUrl: 'https://music.163.com/#/song?id=27646205', scoreUrl: 'https://www.ukuleleba.com/22127.html', neteaseTrackId: 27646205, route: [{ label: '前奏' }, { label: 'A 段' }, { label: 'B 段' }, { label: 'A 段再现' }, { label: 'B 段再现', repeatTo: 'B 段' }, { label: '尾奏' }], courseNote: '课程参考莉莉克丝 G 调编配；所选页面标注四个和弦、两种伴奏型，速度约 65 BPM。站内示范小节用于练习动作，完整编配请看参考谱。' },
+  { id: 'chengdu', title: '成都', artist: '赵雷', mood: '温柔 · 民谣', key: 'C 指法 · 夹 2 品为原调', bpm: 91, timeSignature: '6/8', chords: ['C', 'G', 'Em', 'Am', 'F', 'Dm'], intro: '先抓住六个和弦和长歌段落，再逐步连成弹唱。', fit: '适合练习和弦转换', fitLabel: '循序渐进', palette: 'clay', sourceUrl: 'https://music.163.com/#/song?id=436514312', scoreUrl: 'https://www.ukuleleba.com/22137.html', neteaseTrackId: 436514312, route: [{ label: '前奏' }, { label: '主歌 A' }, { label: '主歌 B' }, { label: '副歌 1' }, { label: '间奏' }, { label: '主歌再现' }, { label: '副歌 2', repeatTo: '副歌 1' }, { label: '尾奏' }], courseNote: '课程参考莉莉克丝 C 指法编配；谱面为 6/8 拍，唱原调建议夹 2 品，标注六个和弦、一种伴奏型，速度约 91 BPM。站内示范小节用于练习动作，完整编配请看参考谱。' },
+  { id: 'nanshannan', title: '南山南', artist: '马頔', mood: '叙事 · 民谣', key: 'C 调参考编配', bpm: 65, timeSignature: '4/4', chords: ['Fmaj7', 'G7', 'Em7', 'Am', 'Dm7', 'C', 'Dm', 'G', 'Cadd9', 'Gsus2', 'C7', 'F'], intro: '先听懂段落的轻重，再挑战谱里的色彩和弦。', fit: '适合进入下一阶段', fitLabel: '稍有挑战', palette: 'blue', sourceUrl: 'https://music.163.com/#/song?id=29715551', scoreUrl: 'https://www.ukuleleba.com/915.html', neteaseTrackId: 29715551, route: [{ label: '前奏' }, { label: '主歌一' }, { label: '主歌二' }, { label: '主歌三' }, { label: '尾声' }], courseNote: '参考缘起 ukulele 教学及配套谱；该版本为 C 调、4/4 拍、约 65 BPM，并用到七和弦与挂留和弦。课程先练基础动作，完整编配请看参考谱。' },
 ]
 
 const lessonPlans: Record<string, LessonDraft[]> = {
   anheqiao: [
-    { title: '先把整首歌听成一张路线图', why: '叙事感来自段落推进。先认路，练到中途就不容易迷失。', section: '原曲结构', focus: '前奏 → 主歌 → 副歌 → 间奏 → 尾奏', scoreCue: '打开参考弹唱谱，只标段落名称和重复记号；不抄歌词。留意每段何时回到主和弦。', steps: ['完整听一遍原曲，不拿琴，轻拍稳定的四拍。', '在参考谱上标出前奏、主歌、副歌、间奏和结尾。', '再听一遍，确认重复段从哪里回到哪里。'], success: '不看提示，能按顺序说出歌曲段落，并指出结束位置。', chords: [], bpm: 48, simplifiedSteps: ['只听一遍，跟着数四拍。', '在谱面圈出开头和结束位置。'], simplifiedSuccess: '能找到这首歌的开头和结尾。' },
+    { title: '先把整首歌听成一张路线图', why: '叙事感来自段落推进。先认路，练到中途就不容易迷失。', section: '原曲结构', focus: '前奏 → 主歌 → 副歌 → 间奏 → 尾奏', scoreCue: '下面已准备好段落路线。按顺序读一遍名称，再沿回环箭头找到重复段回到的位置。', steps: ['完整听一遍原曲，不拿琴，轻拍稳定的四拍。', '看下方路线图，依次读出段落名称。', '沿路线图的回环标记再走一遍，找到回到哪一段。'], success: '能跟着路线图说出段落顺序，并指出结束位置。', chords: [], bpm: 48, simplifiedSteps: ['只听一遍，跟着数四拍。', '看路线图找到开头和结束位置。'], simplifiedSuccess: '能找到这首歌的开头和结尾。' },
     { title: '把 G、D、Em、C 按清楚', why: '这组开放和弦构成本课的主要指法词汇；单个和弦清楚，后面才有余力顾节奏。', section: '和弦准备', focus: 'G · D · Em · C：先按、再逐弦检查', scoreCue: '参考谱采用 G 调指法。和弦列表是练习准备，不代表它们按同一顺序出现；以你打开的谱面为准。', steps: ['先练 G：手指贴近品丝，轻拨 G、C、E、A 四弦。', '依次检查 D、Em、C；有闷音就一根手指一根手指调整。', '每个和弦放松手掌后重新按三次，记住手指落点。'], success: 'G、D、Em、C 各连续三次清楚发声，且手腕没有明显紧绷。', chords: ['G', 'D', 'Em', 'C'], bpm: 48, simplifiedSteps: ['只练 G 和弦，逐弦拨响四根弦。', '放松后再按一次，检查有没有闷音。'], simplifiedSuccess: 'G 和弦能连续两次清楚发声。' },
     { title: '练四组换位，不追求快', why: '换和弦最容易让节拍停下来。把手指移动单独拆出来，之后套回谱面会轻松很多。', section: '和弦转换', focus: 'G↔D · D↔Em · Em↔C · C↔G', scoreCue: '这是换位练习组，不是原曲顺序转录。用参考谱确认每次真实换和弦的位置。', steps: ['先无声摆 G 和 D，各停四拍，来回切换四次。', '同样练 D↔Em、Em↔C、C↔G；每次先落最容易定位的手指。', '打开参考谱，只挑实际相邻的两组和弦，各做四次慢速转换。'], success: '谱中实际出现的两组转换，各连续四次不中断；允许慢，但不能漏拍。', chords: ['G', 'D', 'Em', 'C'], bpm: 48, simplifiedSteps: ['只练 G↔D，不扫弦。', '先停稳再换，左右各做三次。'], simplifiedSuccess: 'G↔D 慢速来回三次，至少两次没有停顿。' },
     { title: '让右手保持民谣律动', why: '先把右手变成稳定的钟摆，再让左手在谱面标记处换和弦。', section: '右手节奏', focus: '四拍下扫打底；再按参考谱加入轻扫或空拍', scoreCue: '基础节奏只是拆手训练；最终请照参考谱的节奏记号和原曲律动演奏。', steps: ['左手消音，右手连续做四拍轻下扫，每拍都匀。', '保持右手不停，用嘴数拍；在谱上标记的换和弦拍点换左手。', '若参考谱有上扫或空拍，再一次只加入一个变化。'], success: '连续四小节保持同一拍速，换和弦时右手不停；原曲细节逐项加回。', chords: ['G', 'D'], bpm: 48, pattern: ['↓', '↓', '↓', '↓'], simplifiedSteps: ['消音琴弦，只做四拍下扫。', '每做四拍停一下，重新从第一拍开始。'], simplifiedSuccess: '连续两小节四拍均匀，不抢拍。' },
@@ -71,39 +81,66 @@ const lessonPlans: Record<string, LessonDraft[]> = {
   ],
   nanshannan: [
     { title: '听出叙事段落与情绪转折', why: '叙事和动态变化比单纯循环更重要，先听懂结构再安排手上动作。', section: '原曲结构', focus: '前奏 · 叙事段 · 情绪展开 · 间奏 · 收尾', scoreCue: '参考教学谱与原曲对照，标注重复、间奏和动态变化。不同编配可能有段落差异，以你选定版本为准。', steps: ['完整听一遍，留意哪段增强、哪段回到安静。', '沿参考谱标出重复记号、间奏与最后收束处。', '轻拍四拍再听一次，只在段落变化时做标记。'], success: '能按所选谱面说出段落路线，并指出一个需要收弱或增强的位置。', chords: [], bpm: 48, simplifiedSteps: ['只听一遍，找到情绪变化最明显的一处。', '在参考谱对应段落做个记号。'], simplifiedSuccess: '能指出一处段落或力度变化。' },
-    { title: '先认基础和弦，再查特殊和弦', why: '参考编配含七和弦、挂留和弦等色彩和声；先把基础手型按稳，再逐个对谱学习。', section: '和弦准备', focus: 'C · D · Em · Am · G · Bm + 所选谱中的 7 / sus 和弦', scoreCue: '来源教学提到七和弦和挂留和弦，但不同版本具体和弦不同。此处只练基础预备和弦，特殊和弦以所选谱面为准。', steps: ['先练 C、D、Em、Am、G、Bm 六个预备形状，逐弦检查。', '在参考谱圈出第一个不熟悉的 7 或 sus 和弦。', '对照该谱和弦图单独按住，分别与前后和弦切换。'], success: '预备和弦清楚发声；所选谱里的第一个特殊和弦已能辨认并尝试按出。', chords: ['C', 'D', 'Em', 'Am', 'G', 'Bm', 'G7'], bpm: 48, simplifiedSteps: ['只练 C 和弦，逐弦拨清楚。', '今天先不处理特殊和弦。'], simplifiedSuccess: 'C 和弦连续两次清楚发声。' },
-    { title: '从参考谱挑出最难的两组换位', why: '特殊和弦不必一口气全掌握。按真实谱面筛出最常卡的转换，比背和弦表有效。', section: '和弦转换', focus: '基础和弦 → 参考谱中的 7 / sus 和弦 → 基础和弦', scoreCue: '课程不猜测不同版本的完整和弦顺序。请从所选参考谱挑两组真实相邻和弦，再照步骤练。', steps: ['在谱上找两处最难的相邻和弦，记下和弦名。', '每组先练“按住—放松—再按住”五次，观察共用手指。', '能无声换位后加单次下扫，暂时保持 48 BPM。'], success: '谱面中挑出的两组转换各五次，至少四次能准时落和弦。', chords: ['C', 'D', 'Em', 'Am', 'G', 'Bm', 'G7'], bpm: 48, simplifiedSteps: ['只挑一组转换，只摆手型，不扫弦。', '左右各做三次，手腕保持放松。'], simplifiedSuccess: '三次中至少两次能把手指放到正确位置。' },
+    { title: '先把基础和弦按清楚', why: '这份编配有多个七和弦和挂留和弦。先用熟悉的 C、Am、F、G 建立手感，再试一个特色和弦。', section: '和弦准备', focus: 'C · Am · F · G；认识 Fmaj7', scoreCue: '基础和弦图与 Fmaj7 指法图都在下面；先按熟悉的形状，再看一个新形状。', steps: ['先按 C 和弦，逐根拨响四弦。', '再练 Am、F、G，每次只换一个手指位置。', '看 Fmaj7 图，试着按一次；今天认识它就可以。'], success: 'C、Am、F、G 能各自清楚发声，并认出 Fmaj7 的手指位置。', chords: ['C', 'Am', 'F', 'G', 'Fmaj7'], bpm: 48, simplifiedSteps: ['只练 C 和弦，逐弦拨清楚。', '今天先不处理特色和弦。'], simplifiedSuccess: 'C 和弦连续两次四弦都清楚。' },
+    { title: '练一组简单和弦转换', why: '先把熟悉的和弦换顺，再把特色和弦逐步放进歌曲。', section: '和弦转换', focus: 'C ↔ G · Am ↔ F', scoreCue: '下面的小节卡把每个和弦放在小节开头，先不急着套入整首歌。', steps: ['先按 C，数四拍后换到 G。', '练 Am ↔ F，每次换完轻拨四弦。', '稳定后把每个和弦保持一小节，再按图中顺序切换。'], success: 'C↔G 与 Am↔F 各慢速往返三次，节拍不中断。', chords: ['C', 'G', 'Am', 'F'], bpm: 48, simplifiedSteps: ['只练 C↔G，不扫弦。', '每次换好后轻拨四根弦。'], simplifiedSuccess: 'C↔G 往返三次，至少两次声音清楚。' },
     { title: '用轻重变化托住叙事节奏', why: '先稳定拍点再做强弱变化，避免右手越弹越快。', section: '右手节奏与力度', focus: '均匀四拍 + 段落强弱：弱 → 稍强 → 回弱', scoreCue: '这里是拆手用的基础练习，不是原曲节奏转录。最终按所选教学谱和原曲还原。', steps: ['消音练四拍下扫，保持 48 BPM 不变化。', '每小节第一拍稍清楚、其余轻一点；不要靠加快制造情绪。', '选参考谱一个段落，把强弱分成轻、适中两档。'], success: '连续四小节拍点稳定，并做出一次清楚但克制的强弱变化。', chords: ['C', 'Em', 'G'], bpm: 48, pattern: ['↓', '↓', '↓', '↓'], simplifiedSteps: ['只做四拍均匀下扫。', '每小节第一拍听得清楚。'], simplifiedSuccess: '两小节速度均匀，没有越弹越快。' },
-    { title: '把叙事主歌拆成两小节', why: '复杂和弦与长句放在一起会增加负担；先对齐小节线再一组组扩大。', section: '主歌 · 两小节片段', focus: '所选谱面第一段主歌 2 小节', scoreCue: '圈定两小节，记下其中和弦名与换和弦拍点；不要凭其他编配猜原曲。', steps: ['先朗读两小节内的和弦名称，只读节拍、不弹。', '48 BPM 每小节一次轻扫，确认所有和弦变化。', '连续弹对两次后增加右手律动，仍只练这两小节。'], success: '两小节按谱弹三次，换和弦拍点准确，特殊和弦没有明显闷音。', chords: ['C', 'D', 'Em', 'Am', 'G', 'G7'], bpm: 48, simplifiedSteps: ['只练两小节中的第一个和弦。', '每小节扫一次，边弹边数四拍。'], simplifiedSuccess: '能够稳定数完两小节。' },
-    { title: '连起段落并保留力度变化', why: '先解决段落连接，再加回动态，完整演奏才会既不断线又不平。', section: '主歌 → 情绪展开 → 间奏', focus: '每个转段前后各 1 小节', scoreCue: '依参考谱段落标签逐个串联；版本结构不同，就把练法套到自己谱面的转段。', steps: ['分别弹转段前一小节和后一小节，确认下一段入口。', '每次只接一处转段；连顺后加入轻、适中两档力度。', '按谱面顺序串起片段，失误后继续数拍。'], success: '能照所选谱从前奏演奏到尾奏，段落顺序正确且不中途重来。', chords: ['C', 'D', 'Em', 'Am', 'G', 'G7'], bpm: 60, simplifiedSteps: ['只连接一处最容易迷路的转段。', '段落边界前数满四拍，再进入下一段。'], simplifiedSuccess: '能准确进入下一段，不把节拍停掉。' },
-    { title: '先哼唱，再加入一小句歌词', why: '先确认伴奏和呼吸协调，再加歌词；自然表达比勉强追高音重要。', section: '弹唱接入', focus: '一小句哼唱 → 一小句轻声唱', scoreCue: '按所选参考谱原调演奏；若原调偏高，可低八度轻声唱，不改伴奏。歌词请从你自己的合法来源查看。', steps: ['弹主歌伴奏两遍，注意换和弦前留出自然呼吸。', '第三遍只哼旋律，不唱词；右手继续稳定数拍。', '哼顺后试唱同一小句，再扩到相邻小节。'], success: '完成一小句弹唱，换气自然，右手不断拍且不硬推高音。', chords: ['C', 'D', 'Em', 'Am', 'G', 'G7'], bpm: 48, simplifiedSteps: ['只弹一个和弦并哼四拍。', '音量放轻，先不唱歌词。'], simplifiedSuccess: '可以边保持四拍边轻哼。' },
-    { title: '从头到尾完成自己的原曲版本', why: '目标是完整讲完这首歌：段落准确、伴奏持续、演唱舒服。', section: '全曲 · 完整弹唱', focus: '所选参考谱的全部段落、重复、间奏和尾奏', scoreCue: '按所选原调参考谱和原曲结构完整演奏；不同编配的特殊和弦与节奏以该谱为准，站内不复印整谱或歌词。', steps: ['先用 60 BPM 走一遍全曲伴奏，确认每段入口和结尾。', '第二遍加入熟悉段落的演唱，间奏和转段继续弹、不停表。', '稳定后逐步提高到参考谱/原曲目标速度，记下最难的一处。'], success: '按参考谱从头到尾完成器乐伴奏和弹唱，达到约 80% 连贯度；错音后仍继续。', chords: ['C', 'D', 'Em', 'Am', 'G', 'G7'], bpm: 60, simplifiedSteps: ['完整弹伴奏但暂不唱。', '只在最熟悉的一段加入轻声哼唱。'], simplifiedSuccess: '整首伴奏线路能走完，至少一段可以同时哼唱。' },
+    { title: '把主歌开头拆成两小节', why: '把和弦放进短片段里练，能听见变化，也不用一下记完整首歌。', section: '主歌 · 两小节片段', focus: 'C · Em · F · G 基础和弦片段', scoreCue: '按下方两小节示范练手；原曲的逐小节和弦仍以外部参考谱为准。', steps: ['先看每小节上方的和弦名称，跟着数拍。', '48 BPM 每小节轻扫一次，按小节卡换和弦。', '稳定两遍后加上均匀下扫，仍只练这两小节。'], success: '两小节连续弹三遍，换和弦时拍子不中断。', chords: ['C', 'Em', 'F', 'G'], bpm: 48, simplifiedSteps: ['只练第一小节的 C 和弦。', '每拍轻下扫一次，数满四拍。'], simplifiedSuccess: '能稳定弹完这一小节四拍。' },
+    { title: '连起段落并保留力度变化', why: '先解决段落连接，再加回动态，完整演奏才会既不断线又不平。', section: '主歌 → 连接段 → 收尾', focus: '转段前后各 1 小节；特色和弦逐步加回', scoreCue: '先用熟悉的和弦走顺路线，再按示范卡加入谱里的特色和弦。', steps: ['跟路线图依次弹主歌、连接段和收尾。', '每次只连接相邻两段；连顺后再加轻、适中两档力度。', '失误后继续数拍，不从头重来。'], success: '能照路线图从前奏弹到尾声，段落顺序正确且不中途重来。', chords: ['C', 'Am', 'F', 'G', 'Fmaj7', 'G7'], bpm: 60, simplifiedSteps: ['只连接一处相邻段落。', '段落边界前数满四拍，再进入下一段。'], simplifiedSuccess: '能准确进入下一段，不把节拍停掉。' },
+    { title: '先哼唱，再加入一小句歌词', why: '先确认伴奏和呼吸协调，再加歌词；自然表达比勉强追高音重要。', section: '主歌 · 弹唱接入', focus: '先哼旋律，再轻声唱熟悉的一句', scoreCue: '按自己的舒适音区轻声唱；伴奏继续跟拍，嗓音不舒服就回到哼唱。', steps: ['弹主歌伴奏两遍，注意换和弦前留出自然呼吸。', '第三遍只哼旋律；右手继续稳定数拍。', '哼顺后试唱同一小句，再扩到相邻小节。'], success: '完成一小句弹唱，换气自然，右手不断拍且不挤嗓。', chords: ['C', 'Am', 'F', 'G', 'Fmaj7', 'G7'], bpm: 48, simplifiedSteps: ['只弹一个和弦并哼四拍。', '音量放轻，先不唱歌词。'], simplifiedSuccess: '可以边保持四拍边轻哼。' },
+    { title: '从头到尾完成自己的原曲版本', why: '目标是完整讲完这首歌：段落准确、伴奏持续、演唱舒服。', section: '全曲 · 完整弹唱', focus: '路线图中的全部段落与收尾', scoreCue: '按路线图从头到尾完成，再对照外部参考谱补回原编配中的特色和弦。', steps: ['先用 60 BPM 走一遍全曲伴奏，确认每段入口和结尾。', '第二遍加入熟悉段落的演唱，间奏和转段继续弹、不停表。', '稳定后逐步提高到参考谱目标速度，记下最难的一处。'], success: '按参考谱从头到尾完成器乐伴奏和弹唱，整体连贯度达到约 80%；错音后仍继续。', chords: ['Fmaj7', 'G7', 'Em7', 'Am', 'Dm7', 'C', 'Dm', 'G', 'Cadd9', 'Gsus2', 'C7', 'F'], bpm: 60, simplifiedSteps: ['完整弹伴奏但暂不唱。', '只在最熟悉的一段加入轻声哼唱。'], simplifiedSuccess: '整首伴奏线路能走完，至少一段可以同时哼唱。' },
   ],
 }
 
 export const SONGS: Song[] = songConfigs.map((song) => ({
   ...song,
-  tasks: lessonPlans[song.id].map((draft, index) => ({
-    ...draft,
-    id: `${song.id}-stage-${index + 1}`,
-    songId: song.id,
-    stage: index + 1,
-    stageName: STAGES[index],
-    tempoSteps: [draft.bpm, Math.round((draft.bpm + song.bpm) / 2), song.bpm],
-  })),
+  tasks: lessonPlans[song.id].map((draft, index) => {
+    const focusChords = song.chords.filter((chord) => draft.focus.includes(chord))
+    const chords = focusChords.length > 0 ? focusChords : draft.chords.length > 0 ? draft.chords : [song.chords[0]]
+    const rhythm = draft.pattern?.length === 4 ? draft.pattern : ['↓', '↓', '↓', '↓']
+    const guidedSteps = [...draft.steps, ...draft.simplifiedSteps].map((step) =>
+      /标出|圈出|找出|挑出|标记/.test(step) && /谱|小节|段落|和弦|重复/.test(step)
+        ? '跟着下方已经标好的路线图或小节示范练习，不需要自己找标记。'
+        : step,
+    )
+    return {
+      ...draft,
+      scoreCue: '下面的小节卡已标好和弦与四拍扫弦。它是动作练习示范，不是原曲逐小节转录；完整编配请看参考曲谱。',
+      steps: guidedSteps.slice(0, draft.steps.length),
+      simplifiedSteps: guidedSteps.slice(draft.steps.length),
+      scoreGuide: {
+        section: draft.section,
+        timeSignature: song.timeSignature,
+        bars: [
+          { chord: chords[0], beats: song.timeSignature === '6/8' ? ['↓', '·', '↓', '·', '↓', '·'] : rhythm },
+          { chord: chords[1] ?? chords[0], beats: song.timeSignature === '6/8' ? ['↓', '·', '↓', '·', '↓', '·'] : rhythm },
+        ],
+      },
+      id: `${song.id}-stage-${index + 1}`,
+      songId: song.id,
+      stage: index + 1,
+      stageName: STAGES[index],
+      tempoSteps: [draft.bpm, Math.round((draft.bpm + song.bpm) / 2), song.bpm],
+    }
+  }),
 }))
 
 export const CHORDS: Record<ChordName, { frets: number[]; fingers: number[]; hint: string }> = {
   C: { frets: [0, 0, 0, 3], fingers: [0, 0, 0, 3], hint: '无名指按住 A 弦第 3 品' },
   Am: { frets: [2, 0, 0, 0], fingers: [2, 0, 0, 0], hint: '中指按住 G 弦第 2 品' },
   F: { frets: [2, 0, 1, 0], fingers: [2, 0, 1, 0], hint: '食指按 E 弦第 1 品，中指按 G 弦第 2 品' },
-  G: { frets: [0, 2, 3, 2], fingers: [0, 1, 3, 2], hint: '食指、中指、无名指分别按住 C、E、A 弦' },
+  G: { frets: [0, 2, 3, 2], fingers: [0, 1, 3, 2], hint: '食指按 C 弦第 2 品，无名指按 E 弦第 3 品，中指按 A 弦第 2 品' },
   Em: { frets: [0, 4, 3, 2], fingers: [0, 3, 2, 1], hint: '三根手指按住 C、E、A 弦的第 4、3、2 品' },
   E: { frets: [1, 4, 0, 2], fingers: [1, 4, 0, 2], hint: '先放慢速度，依次找到 G、C、A 弦上的手指位置' },
   D: { frets: [2, 2, 2, 0], fingers: [1, 2, 3, 0], hint: '食指、中指、无名指并排按住前三根弦第 2 品' },
   Dm: { frets: [2, 2, 1, 0], fingers: [2, 3, 1, 0], hint: '食指按 E 弦第 1 品，另外两指按 G、C 弦第 2 品' },
-  Bm: { frets: [4, 2, 2, 2], fingers: [3, 1, 1, 1], hint: '食指横按前三根弦第 2 品，无名指按 G 弦第 4 品' },
+  Bm: { frets: [4, 2, 2, 2], fingers: [3, 1, 1, 1], hint: '食指横按 C、E、A 弦第 2 品，无名指按 G 弦第 4 品' },
   G7: { frets: [0, 2, 1, 2], fingers: [0, 2, 1, 3], hint: '中指按 C 弦第 2 品，食指按 E 弦第 1 品，无名指按 A 弦第 2 品' },
+  Fmaj7: { frets: [2, 0, 0, 0], fingers: [2, 0, 0, 0], hint: '中指按 G 弦第 2 品，其余三根弦空弦弹奏' },
+  Em7: { frets: [0, 2, 0, 2], fingers: [0, 2, 0, 3], hint: '中指按 C 弦第 2 品，无名指按 A 弦第 2 品' },
+  Dm7: { frets: [2, 2, 1, 3], fingers: [2, 3, 1, 4], hint: '食指按 E 弦第 1 品；中指、无名指、小指分别按 G、C、A 弦' },
+  Cadd9: { frets: [0, 2, 0, 3], fingers: [0, 1, 0, 3], hint: '食指按 C 弦第 2 品，无名指按 A 弦第 3 品' },
+  Gsus2: { frets: [0, 2, 3, 0], fingers: [0, 1, 3, 0], hint: '食指按 C 弦第 2 品，无名指按 E 弦第 3 品' },
+  C7: { frets: [0, 0, 0, 1], fingers: [0, 0, 0, 1], hint: '食指按 A 弦第 1 品，其余三根弦空弦弹奏' },
 }
 
 export function findSong(songId: string | null | undefined) {

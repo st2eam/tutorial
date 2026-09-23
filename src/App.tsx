@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
-  ArrowDown, ArrowLeft, ArrowRight, AudioLines, BookOpen, Check, CheckCircle2, ChevronRight,
+  ArrowDown, ArrowLeft, ArrowRight, AudioLines, BookOpen, Check, CheckCircle2, ChevronRight, CornerUpLeft,
   CircleHelp, Clock3, Download, ExternalLink, Guitar, Home, LockKeyhole, Music2,
   Pause, Play, Plus, RotateCcw, Settings, Sparkles, Sprout, Upload, Volume2, X,
 } from 'lucide-react'
@@ -24,7 +24,7 @@ function setPage(page: Page) {
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return <div className={`brand ${compact ? 'brand--compact' : ''}`}>
-    <span className="brand-mark" aria-hidden="true"><span /><span /><span /><span /><i /></span>
+    <img className="brand-mark" src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="" aria-hidden="true" />
     <span className="brand-name">拾音</span>
     {!compact && <span className="brand-tagline">今天，只练下一小步</span>}
   </div>
@@ -44,12 +44,12 @@ function Artwork({ song, large = false }: { song: Song; large?: boolean }) {
   </div>
 }
 
-function ChordDiagram({ name }: { name: ChordName }) {
+function ChordDiagram({ name, onClick, large = false }: { name: ChordName; onClick?: () => void; large?: boolean }) {
   const chord = CHORDS[name]
   const xPositions = [30, 58, 86, 114]
   const yStart = 31
   const fretGap = 22
-  return <div className="chord-card">
+  const content = <>
     <div className="chord-title"><strong>{name}</strong><span>和弦图</span></div>
     <svg viewBox="0 0 144 150" role="img" aria-label={`${name} 和弦指法图：${chord.hint}`}>
       {xPositions.map((x) => <line key={`s${x}`} x1={x} x2={x} y1={yStart} y2={yStart + fretGap * 4} className="chord-string" />)}
@@ -62,7 +62,52 @@ function ChordDiagram({ name }: { name: ChordName }) {
       {['G', 'C', 'E', 'A'].map((stringName, index) => <text key={stringName} x={xPositions[index]} y="139" textAnchor="middle" className="chord-string-name">{stringName}</text>)}
     </svg>
     <p>{chord.hint}</p>
-  </div>
+  </>
+  if (onClick) return <button className="chord-card" type="button" onClick={onClick} aria-label={`放大查看 ${name} 和弦指法图`}>
+    {content}<span className="chord-zoom-label">点按放大</span>
+  </button>
+  return <div className={`chord-card ${large ? 'chord-card--large' : ''}`}>{content}</div>
+}
+
+function SongMusicPlayer({ song }: { song: Song }) {
+  const [loaded, setLoaded] = useState(false)
+  const [online, setOnline] = useState(typeof navigator === 'undefined' || navigator.onLine)
+  useEffect(() => {
+    const updateOnline = () => setOnline(navigator.onLine)
+    window.addEventListener('online', updateOnline)
+    window.addEventListener('offline', updateOnline)
+    return () => {
+      window.removeEventListener('online', updateOnline)
+      window.removeEventListener('offline', updateOnline)
+    }
+  }, [])
+  return <section className="music-player-card" aria-label={`${song.title}原曲播放器`}>
+    <div className="music-player-copy"><div><span className="eyebrow">听一听原曲</span><strong>{song.title} · {song.artist}</strong></div>
+      <a href={song.sourceUrl} target="_blank" rel="noreferrer">在网易云音乐打开 <ExternalLink size={14} /></a></div>
+    {loaded && online ? <iframe title={`网易云音乐：${song.title}`} src={`https://music.163.com/outchain/player?type=2&id=${song.neteaseTrackId}&auto=0&height=86`} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" />
+      : <button className="button button--secondary music-load-button" type="button" onClick={() => setLoaded(true)} disabled={!online}><Play size={15} />{online ? '加载官方播放器' : '离线时无法播放原曲'}</button>}
+    <p>{online ? '播放器由网易云音乐提供；若歌曲受版权或登录限制，请使用上方入口。' : '当前离线，段落路线、练习卡和和弦图仍可使用。'}</p>
+  </section>
+}
+
+function ScoreGuide({ song, task }: { song: Song; task: NonNullable<ReturnType<typeof findTask>> }) {
+  return <section className="score-guide" aria-label="段落路线与小节示范">
+    <div className="score-guide-heading"><div><span className="eyebrow">今天的参考卡</span><h4>段落路线</h4></div><span className="score-guide-caption">先看路线，再弹小节</span></div>
+    <ol className="song-route">{song.route.map((stop, index) => <li key={`${stop.label}-${index}`}>
+      {stop.repeatTo && <CornerUpLeft size={14} aria-label={`重复回到${stop.repeatTo}`} />}
+      <span>{stop.label}</span>
+      {stop.repeatTo && <small>回到 {stop.repeatTo}</small>}
+    </li>)}</ol>
+    <div className="score-example">
+      <div className="score-example-title"><strong>{task.scoreGuide.section} · 两小节练习示范</strong><span>{task.scoreGuide.timeSignature} 拍</span></div>
+      <div className="score-bars">{task.scoreGuide.bars.map((bar, barIndex) => <div className="score-bar" key={`${bar.chord}-${barIndex}`}>
+        <div className="score-bar-chord">{bar.chord}</div><div className="score-beats" style={{ gridTemplateColumns: `repeat(${bar.beats.length}, minmax(0, 1fr))` }}>{bar.beats.map((beat, beatIndex) => <span className="score-beat" key={`${beat}-${beatIndex}`}><b>{beatIndex + 1}</b><i>{beat}</i></span>)}</div>
+        <small>第 {barIndex + 1} 小节</small>
+      </div>)}</div>
+      <p>↑上扫　↓下扫　·延续上一拍。本卡是练习示范，不是原曲逐小节转录；要核对原曲和弦时打开参考谱。</p>
+      <a href={song.scoreUrl} target="_blank" rel="noreferrer">打开完整参考曲谱 <ExternalLink size={14} /></a>
+    </div>
+  </section>
 }
 
 function Metronome({ initialBpm }: { initialBpm: number }) {
@@ -315,7 +360,7 @@ function Onboarding({ onChoose, progress }: { onChoose: (song: Song) => void; pr
   return <div className="onboarding-screen">
     <div className="onboarding-shell">
       <header className="onboarding-header"><Brand /><span className="edition-mark">个人练习手册 <span>—</span> 01</span></header>
-      <section className="welcome-block"><div className="welcome-copy"><span className="eyebrow"><span className="eyebrow-line" />从一首喜欢的歌开始</span><h1>给旋律一点时间，<br /><em>也给自己一点。</em></h1><p>不用一次学会很多。今天，先从你想弹的那首歌，走出一小步。</p></div><div className="welcome-illustration" aria-hidden="true"><svg viewBox="0 0 300 250"><circle cx="150" cy="124" r="93" fill="#e9e1d3"/><ellipse cx="146" cy="140" rx="48" ry="66" fill="#c68b62" transform="rotate(-28 146 140)"/><ellipse cx="146" cy="140" rx="24" ry="31" fill="#f6f0e5" transform="rotate(-28 146 140)"/><path d="M150 22v171M167 22v165M184 29v151M201 43v129" stroke="#5e4838" strokeWidth="4" strokeLinecap="round"/><path d="M36 164c27-39 47 38 74 0s45-34 71 4 50 38 86-4" fill="none" stroke="#275a48" strokeWidth="4" strokeLinecap="round"/><path d="M69 202c37 20 119 30 164 0" fill="none" stroke="#bc8967" strokeWidth="2" strokeDasharray="3 7"/></svg><span>慢慢来，<br />会弹出来的。</span></div></section>
+      <section className="welcome-block"><div className="welcome-copy"><span className="eyebrow"><span className="eyebrow-line" />从一首喜欢的歌开始</span><h1>给旋律一点时间，<br /><em>也给自己一点。</em></h1><p>不用一次学会很多。今天，先从你想弹的那首歌，走出一小步。</p></div><div className="welcome-illustration" aria-hidden="true"><svg viewBox="0 0 300 250"><circle cx="150" cy="124" r="93" fill="#e9e1d3"/><ellipse cx="146" cy="140" rx="48" ry="66" fill="#c68b62" transform="rotate(-28 146 140)"/><ellipse cx="146" cy="140" rx="24" ry="31" fill="#f6f0e5" transform="rotate(-28 146 140)"/><path d="M150 22v171M167 22v165M184 29v151M201 43v129" stroke="#5e4838" strokeWidth="4" strokeLinecap="round"/><path d="M36 164c27-39 47 38 74 0s45-34 71 4 50 38 86-4" fill="none" stroke="#68465f" strokeWidth="4" strokeLinecap="round"/><path d="M69 202c37 20 119 30 164 0" fill="none" stroke="#bc8967" strokeWidth="2" strokeDasharray="3 7"/></svg><span>慢慢来，<br />会弹出来的。</span></div></section>
       <div className="selection-heading"><div><span className="eyebrow">三首熟悉的民谣</span><h2>你想先走进哪段旋律？</h2></div><span className="selection-count">01 <i /> 03</span></div>
       <div className="song-grid song-grid--onboarding">{SONGS.map((song, index) => <SongCard key={song.id} song={song} progress={progress} featured={index === 0} onClick={() => onChoose(song)} />)}</div>
       <footer className="onboarding-foot"><span><CircleHelp size={15} /> 每首歌都会从慢速、分段开始</span><span>不需要基础 · 进度只保存在这台设备</span></footer>
@@ -348,12 +393,19 @@ function TodayPage({ song, item, task, onContinue, onSongs }: { song: Song; item
 }
 
 function PracticePage({ song, task, item, onBack, onFinish }: { song: Song; task: NonNullable<ReturnType<typeof findTask>>; item: ReturnType<typeof getSongProgress>; onBack: () => void; onFinish: () => void }) {
+  const [openChord, setOpenChord] = useState<ChordName | null>(null)
   const simplified = item.simplifiedTaskId === task.id
   const isReview = item.reviewTaskId === task.id
   const bpm = simplified ? task.tempoSteps[0] : task.bpm
   const visibleSteps = simplified ? task.simplifiedSteps : task.steps
   const visibleChords = simplified ? task.chords.slice(0, 1) : task.chords
   const successText = simplified ? task.simplifiedSuccess : task.success
+  useEffect(() => {
+    if (!openChord) return
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpenChord(null) }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [openChord])
   return <div className="practice-page">
     <button className="back-button" type="button" onClick={onBack}><ArrowLeft size={16} /> 返回今日</button>
     <div className="practice-heading"><div><span className="eyebrow">{song.title} <span className="eyebrow-separator">/</span> {task.stageName}</span><h2>{task.title}</h2></div><span className="lesson-number">{String(task.stage).padStart(2, '0')} <i /> 08</span></div>
@@ -365,12 +417,21 @@ function PracticePage({ song, task, item, onBack, onFinish }: { song: Song; task
       <div className="lesson-divider" />
       <div className="lesson-label"><span className="lesson-label-dot lesson-label-dot--clay" />跟着做</div>
       <ol className="practice-steps">{visibleSteps.map((step, index) => <li key={step}><span>{String(index + 1).padStart(2, '0')}</span><p>{step}</p></li>)}</ol>
-      {visibleChords.length > 0 && <div className="lesson-resource"><div className="resource-head"><div><span className="eyebrow">今天会用到</span><h4>和弦指法</h4></div><span className="resource-meta">琴弦从上到下：G · C · E · A</span></div><div className="chord-grid">{visibleChords.map((chord) => <ChordDiagram name={chord} key={chord} />)}</div></div>}
+      <ScoreGuide song={song} task={task} />
+      {visibleChords.length > 0 && <div className="lesson-resource"><div className="resource-head"><div><span className="eyebrow">今天会用到</span><h4>和弦指法</h4></div><span className="resource-meta">正对指板，从左到右：G · C · E · A</span></div><div className="chord-grid">{visibleChords.map((chord) => <ChordDiagram name={chord} onClick={() => setOpenChord(chord)} key={chord} />)}</div><p className="chord-legend">圆点数字表示按弦手指：1 食指 · 2 中指 · 3 无名指 · 4 小指；○ 表示空弦。</p></div>}
       {task.pattern && <div className="rhythm-panel"><div><span className="eyebrow">四拍一小节</span><h4>轻轻扫过弦</h4></div><div className="rhythm-row">{task.pattern.map((mark, index) => <div className="rhythm-beat" key={`${mark}${index}`}><span className="rhythm-arrow">{mark === '↓' ? <ArrowDown size={20} /> : mark}</span><small>{index + 1}</small></div>)}</div><p>先用手掌拍出节奏，再拿起琴试一次。</p></div>}
       <div className="lesson-success"><CheckCircle2 size={18} /><div><strong>完成标准</strong><p>{successText}</p></div></div>
     </article>
+    <SongMusicPlayer song={song} />
     <Metronome initialBpm={bpm} />
     <div className="practice-footer"><span><LockKeyhole size={14} /> 完成情况由你自己确认</span><button className="button button--primary button--wide" type="button" onClick={onFinish}>完成本次练习 <Check size={17} /></button></div>
+    {openChord && <div className="chord-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpenChord(null) }}><section className="chord-modal" role="dialog" aria-modal="true" aria-labelledby="chord-modal-title" tabIndex={-1}>
+      <button className="modal-close icon-button" type="button" aria-label="关闭和弦图" onClick={() => setOpenChord(null)}><X size={18} /></button>
+      <span className="eyebrow">和弦指法参考</span><h3 id="chord-modal-title">{openChord} 怎么按</h3>
+      <ChordDiagram name={openChord} large />
+      <p className="chord-modal-directions">{CHORDS[openChord].hint}。指尖靠近品丝按下，再逐根拨弦确认声音清楚。</p>
+      <div className="chord-modal-legend"><span><b>1</b> 食指</span><span><b>2</b> 中指</span><span><b>3</b> 无名指</span><span><b>4</b> 小指</span><span><b>○</b> 空弦</span></div>
+    </section></div>}
   </div>
 }
 

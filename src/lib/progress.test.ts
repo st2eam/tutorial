@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SONGS, STAGES } from '../data/course'
+import { CHORDS, SONGS, STAGES } from '../data/course'
 import { currentTask, emptyProgress, getSongProgress, markSongRoute, recordFeedback, startSong, validateProgressBackup } from './progress'
 
 const song = SONGS[0]
@@ -20,8 +20,37 @@ describe('歌曲专属课程内容', () => {
         expect(task.tempoSteps[2]).toBe(course.bpm)
         expect(task.tempoSteps[0]).toBeLessThanOrEqual(task.tempoSteps[1])
         expect(task.tempoSteps[1]).toBeLessThanOrEqual(task.tempoSteps[2])
+        expect(task.scoreGuide.bars).toHaveLength(2)
+        const expectedPulses = course.timeSignature === '6/8' ? 6 : 4
+        expect(task.scoreGuide.bars.every((bar) => bar.beats.length === expectedPulses)).toBe(true)
+        expect(`${task.steps.join(' ')} ${task.simplifiedSteps.join(' ')}`).not.toMatch(/(?:请|自己).{0,8}(?:标出|圈出|找出|挑出)|在参考谱.{0,10}(?:标出|圈出|找出|挑出)/)
       }
     }
+  })
+
+  it('每首歌都有带重复指向的路线图和网易云官方入口', () => {
+    for (const course of SONGS) {
+      expect(course.route.length).toBeGreaterThan(4)
+      for (const stop of course.route) {
+        if (stop.repeatTo) expect(course.route.some((target) => target.label === stop.repeatTo)).toBe(true)
+      }
+      expect(course.neteaseTrackId).toBeGreaterThan(0)
+      expect(course.sourceUrl).toContain(`/song?id=${course.neteaseTrackId}`)
+    }
+    expect(SONGS.some((course) => course.route.some((stop) => stop.repeatTo))).toBe(true)
+  })
+
+  it('和弦手指说明与按弦数据一致', () => {
+    expect(CHORDS.Bm.hint).toContain('C、E、A 弦')
+    expect(CHORDS.G.hint).toContain('无名指按 E 弦第 3 品')
+    for (const chord of SONGS[2].chords) expect(CHORDS[chord]).toBeDefined()
+  })
+
+  it('成都示范小节按 6/8 拍显示，南山南列出所选谱中的特色和弦', () => {
+    expect(SONGS[1].timeSignature).toBe('6/8')
+    expect(SONGS[1].tasks[0].scoreGuide.bars[0].beats).toHaveLength(6)
+    expect(SONGS[2].chords).toContain('Fmaj7')
+    expect(SONGS[2].chords).toContain('Cadd9')
   })
 
   it('三首歌每个阶段都有各自的具体练习任务', () => {

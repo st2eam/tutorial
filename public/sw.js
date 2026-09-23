@@ -1,5 +1,5 @@
-const CACHE_NAME = 'shiyin-v1'
-const APP_SHELL = ['./', './index.html', './manifest.webmanifest', './favicon.svg']
+const CACHE_NAME = 'shiyin-v2'
+const APP_SHELL = ['./', './index.html', './manifest.webmanifest', './icons/favicon-32.png', './icons/apple-touch-icon.png', './icons/icon-192.png', './icons/icon-512.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
