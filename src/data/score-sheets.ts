@@ -86,13 +86,6 @@ function makeSheet(
 const bar = (chord: ChordName, ...melody: MelodyPitch[]): BarDraft => ({ chord, melody })
 
 export const SCORE_SHEETS: Record<string, ScoreSheet> = {
-  'castle-in-the-sky': makeSheet('castle-in-the-sky', 'fingerstyle', '4/4', 92, [
-    { id: 'intro', label: '主题引子', bars: [bar('C', ['A', 3], ['A', 5], ['E', 3], ['E', 5])] },
-    { id: 'theme-a', label: '主题 A', bars: [bar('C', ['A', 3], ['A', 5], ['A', 7], ['A', 5]), bar('Am', ['E', 3], ['E', 5], ['E', 7], ['E', 5]), bar('F', ['A', 3], ['A', 5], ['E', 3], ['E', 5]), bar('G', ['E', 3], ['E', 2], ['A', 5], ['A', 3])] },
-    { id: 'theme-b', label: '主题 B', bars: [bar('Am', ['A', 5], ['A', 7], ['E', 5], ['E', 3]), bar('Em', ['E', 2], ['E', 3], ['E', 5], ['E', 3]), bar('F', ['A', 3], ['A', 5], ['A', 7], ['E', 5]), bar('G', ['E', 3], ['E', 5], ['A', 5], ['A', 3])] },
-    { id: 'bridge', label: '连接段', bars: [bar('Dm', ['A', 5], ['E', 3], ['E', 5], ['A', 3]), bar('G', ['E', 3], ['E', 2], ['A', 5], ['A', 3])] },
-    { id: 'outro', label: '尾声', bars: [bar('C', ['A', 3], ['E', 3], ['C', 0], ['A', 3])] },
-  ], ['intro', 'theme-a', 'theme-b', 'theme-a', 'theme-b', 'bridge', 'theme-a', 'outro']),
   'always-with-me': makeSheet('always-with-me', 'fingerstyle', '4/4', 72, [
     { id: 'intro', label: '前奏动机', bars: [bar('C', ['E', 0], ['E', 3], ['A', 0], ['E', 3]), bar('Am', ['A', 0], ['A', 3], ['E', 0], ['E', 3])] },
     { id: 'theme-a', label: '主题 A', bars: [bar('C', ['E', 0], ['E', 3], ['E', 5], ['E', 3]), bar('G', ['A', 0], ['A', 3], ['E', 5], ['E', 3]), bar('Am', ['E', 0], ['E', 3], ['A', 3], ['A', 0]), bar('F', ['A', 3], ['E', 1], ['E', 3], ['A', 3])] },

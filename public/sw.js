@@ -1,5 +1,7 @@
-const CACHE_NAME = 'shiyi-v1'
-const APP_SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon.svg']
+const CACHE_NAME = 'shiyi-v3'
+const APP_SHELL = [
+  './', './index.html', './manifest.webmanifest', './icons/icon.svg',
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {

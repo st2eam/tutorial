@@ -5,6 +5,7 @@ import {
   Pause, Play, Plus, RotateCcw, Settings, Shapes, Sparkles, Sprout, Upload, Volume2, X,
 } from 'lucide-react'
 import { CHORDS, findSong, findTask, getCastleScoreRows, SONGS, STAGES, FINGERSTYLE_STAGES, type ChordName, type Song, type SongKind } from './data/course'
+import { CASTLE_SCORE, CASTLE_SCORE_MEASURE_COUNT, CASTLE_SCORE_SOURCE, CASTLE_SCORE_SYSTEMS, type CastleMeasure, type CastleString } from './data/castle-score'
 import { CATEGORIES, findGuidedCourse, findSkill, GUIDED_COURSES, SKILLS, type GuidedCourse } from './data/catalog'
 import { getSimplifiedMeasureIds, getTaskMeasureIds, SCORE_SHEETS, type ScoreMeasure, type ScoreSheet, type UkuleleString } from './data/score-sheets'
 import {
@@ -212,14 +213,96 @@ function PracticeScoreCard({ song, task, bpm, simplified, onChordClick }: { song
   </section>
 }
 
-function CastleReferenceGuide({ song, task, simplified }: { song: Song; task: NonNullable<ReturnType<typeof findTask>>; simplified: boolean }) {
-  const rows = getCastleScoreRows(task.stage, simplified)
-  return <section className="practice-score-card reference-score-card" aria-label={`${song.title}参考谱定位`}>
-    <div className="practice-score-head"><div><span className="eyebrow">参考谱定位 · 原谱</span><h4>{task.stage === 1 ? '这张谱怎么找小节' : simplified ? '今天先练这一小段' : '今天练这几小节'}</h4></div><span>4/4 · 约 92 BPM</span></div>
-    <p className="practice-score-help">按截图左侧印刷的小节号定位。每行 3 小节，TAB 从上到下是 A、E、C、G 弦；0 是空弦，其他数字是品位。</p>
-    <div className="reference-score-rows">{rows.map(({ row, firstBar, lastBar }) => <div className="reference-score-row" key={`${row}-${firstBar}-${lastBar}`}><span>第 {row} 行</span><strong>{firstBar === lastBar ? `第 ${firstBar} 小节` : `第 ${firstBar}–${lastBar} 小节`}</strong></div>)}</div>
-    <a className="button button--secondary reference-score-link" href={song.scoreUrl} target="_blank" rel="noreferrer"><ExternalLink size={15} />打开这份参考谱</a>
-    <p className="reference-score-note">课程步骤、谱面行号和节拍器对应这份参考谱。跟谱上的音符练习。</p>
+type CastleScoreMode = 'practice' | 'complete' | 'symbols'
+
+const CASTLE_STRING_Y: Record<CastleString, number> = { A: 42, E: 66, C: 90, G: 114 }
+
+function CastleScoreSystem({ measures, row, zoom }: { measures: CastleMeasure[]; row: number; zoom: number }) {
+  const measureWidth = measures.length === 1 ? 560 : 324
+  const left = 38
+  const width = left + measures.length * measureWidth + 8
+  const lastBar = measures[measures.length - 1]?.number
+  const eventPositions = measures.map((bar, barIndex) => bar.events.map((event) => ({
+    event,
+    barIndex,
+    x: left + barIndex * measureWidth + 36 + event.tick / 16 * (measureWidth - 62),
+  })))
+  const allEvents = eventPositions.flat()
+  const measureX = (index: number) => left + index * measureWidth
+  return <figure className="castle-score-row">
+    <figcaption><span>第 {row} 行</span><strong>小节 {measures[0]?.number}–{lastBar}</strong></figcaption>
+    <div className="castle-score-scroll">
+      <svg className="castle-score-svg" viewBox={`0 0 ${width} 176`} role="img" aria-label={`TAB 第 ${measures[0]?.number} 至 ${lastBar} 小节`} style={{ width: `${zoom * 100}%`, minWidth: `${width * zoom}px` }}>
+        {[42, 66, 90, 114].map((y) => <line key={y} className="castle-score-staff" x1={left} y1={y} x2={width - 8} y2={y} />)}
+        {measures.map((bar, index) => <g key={bar.number}>
+          <line className="castle-score-barline" x1={measureX(index)} y1="42" x2={measureX(index)} y2="114" />
+          <text className="castle-score-bar-number" x={measureX(index) + 13} y="25">{bar.number}</text>
+          {index === 0 && <g className="castle-score-tab-mark"><text x="4" y="58">T</text><text x="4" y="82">A</text><text x="4" y="106">B</text></g>}
+          {index === 0 && bar.number === 1 && <g className="castle-score-meter"><text x={measureX(index) + 12} y="72">4</text><text x={measureX(index) + 12} y="96">4</text></g>}
+        </g>)}
+        <line className="castle-score-barline" x1={width - 8} y1="42" x2={width - 8} y2="114" />
+        {allEvents.map(({ event, x, barIndex }, index) => {
+          const before = allEvents[index - 1]?.event
+          const after = allEvents[index + 1]?.event
+          const tieTo = event.slurAfter ? allEvents.slice(index + 1).find(({ event: next }) => next.notes.some((note) => note.string === event.slurAfter)) : undefined
+          const hasBeam = event.duration === 2 && after?.duration === 2 && allEvents[index + 1]?.barIndex === barIndex
+          const previousBeam = event.duration === 2 && before?.duration === 2 && allEvents[index - 1]?.barIndex === barIndex
+          const beamEnd = hasBeam ? allEvents[index + 1].x : x
+          const topY = event.notes.length ? Math.min(...event.notes.map(({ string }) => CASTLE_STRING_Y[string])) : 62
+          const bottomY = event.notes.length ? Math.max(...event.notes.map(({ string }) => CASTLE_STRING_Y[string])) : 112
+          const arpPath = `M ${x - 10} ${topY - 13} C ${x - 3} ${topY - 7}, ${x - 3} ${topY - 2}, ${x - 10} ${topY + 4} C ${x - 17} ${topY + 10}, ${x - 17} ${topY + 15}, ${x - 10} ${topY + 21} C ${x - 3} ${topY + 27}, ${x - 3} ${topY + 32}, ${x - 10} ${topY + 38} C ${x - 17} ${topY + 44}, ${x - 17} ${topY + 49}, ${x - 10} ${bottomY + 12}`
+          return <g key={`${x}-${index}`}>
+            {event.rest && <path className="castle-score-rest" d={`M ${x} 57 q 10 -8 3 0 l -5 5 q -5 5 4 6 l 6 2 q 5 2 1 7 l -7 8 q -3 4 3 8`} />}
+            {event.arpeggio && <path className="castle-score-arpeggio" d={arpPath} />}
+            {event.notes.map(({ string, fret }, noteIndex) => <text key={`${string}-${noteIndex}`} className="castle-score-fret" x={x} y={CASTLE_STRING_Y[string] + 7} textAnchor="middle">{fret}</text>)}
+            {!event.rest && <line className="castle-score-stem" x1={x} y1={topY + 11} x2={x} y2="150" />}
+            {event.duration === 2 && !hasBeam && !previousBeam && <path className="castle-score-flag" d={`M ${x} 147 q 13 3 6 14`} />}
+            {hasBeam && !previousBeam && <rect className="castle-score-beam" x={x} y="149" width={Math.max(8, beamEnd - x)} height="5" />}
+            {tieTo && event.slurAfter && <path className="castle-score-slur" d={`M ${x + 3} ${CASTLE_STRING_Y[event.slurAfter] + 7} Q ${(x + tieTo.x) / 2} ${CASTLE_STRING_Y[event.slurAfter] + 24} ${tieTo.x - 3} ${CASTLE_STRING_Y[event.slurAfter] + 7}`} />}
+          </g>
+        })}
+      </svg>
+    </div>
+  </figure>
+}
+
+function CastleScoreViewer({ song, task, simplified }: { song: Song; task: NonNullable<ReturnType<typeof findTask>>; simplified: boolean }) {
+  const [mode, setMode] = useState<CastleScoreMode>('practice')
+  const [zoom, setZoom] = useState(1)
+  const selectedRows = getCastleScoreRows(task.stage, simplified)
+  const rowLabel = (firstBar: number, lastBar: number) => firstBar === lastBar ? `第 ${firstBar} 小节` : `第 ${firstBar}–${lastBar} 小节`
+  const activeRange = selectedRows.map(({ firstBar, lastBar }) => rowLabel(firstBar, lastBar)).join('、')
+  const displayRange = mode === 'complete' ? '第 1–24 小节' : activeRange
+  const rowsToDraw = mode === 'complete'
+    ? CASTLE_SCORE_SYSTEMS.map((row) => ({ ...row, measures: CASTLE_SCORE.filter((bar) => bar.number >= row.firstBar && bar.number <= row.lastBar) }))
+    : selectedRows.map((row) => ({ ...row, measures: CASTLE_SCORE.filter((bar) => bar.number >= row.firstBar && bar.number <= row.lastBar) }))
+
+  return <section className="practice-score-card castle-score-card" aria-label={`${song.title}自绘 TAB 谱`}>
+    <div className="practice-score-head"><div><span className="eyebrow">网页绘制 TAB · {CASTLE_SCORE_SOURCE.attribution}</span><h4>{mode === 'complete' ? '完整 24 小节' : mode === 'symbols' ? '节奏与演奏记号' : '本步练习位置'}</h4></div><span>4/4 · 约 92 BPM</span></div>
+    <p className="practice-score-help">谱面由网页中的文字、线条和记号绘制。弦从上到下为 A、E、C、G；数字表示品位，0 表示空弦。当前显示：{displayRange}。</p>
+    <div className="castle-score-toolbar">
+      <div className="castle-score-tabs" role="tablist" aria-label="琴谱查看方式">
+        <button type="button" role="tab" aria-selected={mode === 'practice'} className={mode === 'practice' ? 'is-active' : ''} onClick={() => setMode('practice')}>本步练习</button>
+        <button type="button" role="tab" aria-selected={mode === 'complete'} className={mode === 'complete' ? 'is-active' : ''} onClick={() => setMode('complete')}>完整谱</button>
+        <button type="button" role="tab" aria-selected={mode === 'symbols'} className={mode === 'symbols' ? 'is-active' : ''} onClick={() => setMode('symbols')}>记号说明</button>
+      </div>
+      <div className="castle-score-zoom" aria-label="调整琴谱显示大小">
+        <button className="icon-button" type="button" aria-label="缩小琴谱" onClick={() => setZoom((value) => Math.max(0.75, Number((value - 0.25).toFixed(2))))} disabled={zoom <= 0.75}>−</button>
+        <span>{Math.round(zoom * 100)}%</span>
+        <button className="icon-button" type="button" aria-label="放大琴谱" onClick={() => setZoom((value) => Math.min(2.5, Number((value + 0.25).toFixed(2))))} disabled={zoom >= 2.5}>＋</button>
+      </div>
+    </div>
+    <div className="castle-score-rows">
+      {rowsToDraw.map(({ row, measures }) => <CastleScoreSystem key={row} row={row} measures={measures} zoom={zoom} />)}
+    </div>
+    {mode === 'symbols' && <div className="castle-score-symbols" aria-label="谱面记号说明">
+      <span><b>0</b> 空弦；其他数字为品位</span>
+      <span><i className="castle-symbol-arpeggio" aria-hidden="true" />竖向波浪线：琶音</span>
+      <span><i className="castle-symbol-beam" aria-hidden="true" />粗横线：八分音符连梁</span>
+      <span><i className="castle-symbol-rest" aria-hidden="true">⌁</i>休止符</span>
+      <span><i className="castle-symbol-slur" aria-hidden="true" />弧线：连音线</span>
+    </div>}
+    <div className="castle-score-footer"><span>{CASTLE_SCORE_MEASURE_COUNT} 小节 · High-G · 全部记号为网页绘制</span><a href={song.scoreUrl} target="_blank" rel="noreferrer">查看来源与署名 <ExternalLink size={14} /></a></div>
   </section>
 }
 
@@ -645,12 +728,12 @@ function PracticePage({ song, task, item, onBack, onFinish }: { song: Song; task
       <div className="lesson-label"><span className="lesson-label-dot lesson-label-dot--clay" />跟着做</div>
       <ol className="practice-steps">{visibleSteps.map((step, index) => <li key={step}><span>{String(index + 1).padStart(2, '0')}</span><p>{step}</p></li>)}</ol>
       {song.id === 'castle-in-the-sky'
-        ? <CastleReferenceGuide song={song} task={task} simplified={simplified} />
+        ? <CastleScoreViewer song={song} task={task} simplified={simplified} />
         : <PracticeScoreCard song={song} task={task} bpm={bpm} simplified={simplified} onChordClick={setOpenChord} />}
       {visibleChords.length > 0 && <div className="lesson-resource"><div className="resource-head"><div><span className="eyebrow">今天会用到</span><h4>和弦指法</h4></div><span className="resource-meta">正对指板，从左到右：G · C · E · A</span></div><div className="chord-grid">{visibleChords.map((chord) => <ChordDiagram name={chord} onClick={() => setOpenChord(chord)} key={chord} />)}</div><p className="chord-legend">圆点数字表示按弦手指：1 食指 · 2 中指 · 3 无名指 · 4 小指；○ 表示空弦。</p></div>}
       <div className="lesson-success"><CheckCircle2 size={18} /><div><strong>完成标准</strong><p>{successText}</p></div></div>
     </article>
-    <Metronome initialBpm={bpm} timeSignature={song.timeSignature} tempoUnit={scoreSheet.tempoUnit} />
+    <Metronome initialBpm={bpm} timeSignature={song.timeSignature} tempoUnit={scoreSheet?.tempoUnit ?? 'quarter'} />
     <div className="practice-footer"><span><LockKeyhole size={14} /> 完成情况由你自己确认</span><button className="button button--primary button--wide" type="button" onClick={onFinish}>完成本次练习 <Check size={17} /></button></div>
     {openChord && <div className="chord-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpenChord(null) }}><section className="chord-modal" role="dialog" aria-modal="true" aria-labelledby="chord-modal-title" tabIndex={-1}>
       <button className="modal-close icon-button" type="button" aria-label="关闭和弦图" onClick={() => setOpenChord(null)}><X size={18} /></button>

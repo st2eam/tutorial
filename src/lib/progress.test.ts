@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { CASTLE_SCORE_ROWS, CHORDS, getCastleScoreRows, SONGS, STAGES, FINGERSTYLE_STAGES } from '../data/course'
 import { CATEGORIES, COURSES, GUIDED_COURSES, SONG_COURSES, SKILLS } from '../data/catalog'
 import { getSimplifiedMeasureIds, getTaskMeasureIds, SCORE_SHEETS, validateScoreSheet } from '../data/score-sheets'
+import { CASTLE_SCORE, CASTLE_SCORE_MEASURE_COUNT, CASTLE_SCORE_SOURCE, CASTLE_SCORE_SYSTEMS, validateCastleScore } from '../data/castle-score'
 import { currentGuidedLesson, currentTask, emptyProgress, getGuidedProgress, getSongProgress, isGuidedCourseCompleted, isSongCompleted, markSongRoute, recordFeedback, recordGuidedFeedback, startGuidedCourse, startSong, validateProgressBackup } from './progress'
 
 const song = SONGS[0]
@@ -91,7 +92,7 @@ describe('歌曲专属课程内容', () => {
     }
   })
 
-  it('天空之城课程按用户参考谱的八行小节号定位，不显示不匹配的站内谱卡', () => {
+  it('天空之城课程用自绘谱面完整呈现，并按八行小节号定位练习', () => {
     const solo = SONGS.find((course) => course.id === 'castle-in-the-sky')!
     expect(solo.key).toContain('High-G')
     expect(solo.bpm).toBe(92)
@@ -104,18 +105,48 @@ describe('歌曲专属课程内容', () => {
     expect(solo.tasks[6].id).toBe('castle-in-the-sky-stage-7')
     expect(solo.tasks[7].title).toContain('完整独奏')
     expect(solo.tasks[7].scoreCue).toContain('1、4、7、10、13、16、19、22')
+    expect(getCastleScoreRows(2)).toEqual([{ row: 1, firstBar: 1, lastBar: 3 }])
     expect(CASTLE_SCORE_ROWS.map((row) => [row.row, row.firstBar, row.lastBar])).toEqual([
       [1, 1, 3], [2, 4, 6], [3, 7, 9], [4, 10, 12], [5, 13, 15], [6, 16, 18], [7, 19, 21], [8, 22, 24],
     ])
     expect(getCastleScoreRows(3)).toEqual([{ row: 1, firstBar: 1, lastBar: 1 }])
+    expect(getCastleScoreRows(4)).toEqual([{ row: 2, firstBar: 4, lastBar: 6 }])
+    expect(getCastleScoreRows(5)).toEqual([{ row: 3, firstBar: 7, lastBar: 9 }])
+    expect(getCastleScoreRows(6).map(({ firstBar, lastBar }) => [firstBar, lastBar])).toEqual([[10, 12], [13, 15], [16, 18]])
+    expect(getCastleScoreRows(8)).toEqual(CASTLE_SCORE_ROWS)
+    expect(getCastleScoreRows(4, true)).toEqual([{ row: 2, firstBar: 4, lastBar: 4 }])
+    expect(getCastleScoreRows(5, true)).toEqual([{ row: 3, firstBar: 7, lastBar: 7 }])
     expect(getCastleScoreRows(6, true)).toEqual([{ row: 4, firstBar: 10, lastBar: 12 }])
     expect(getCastleScoreRows(7, true)).toEqual(CASTLE_SCORE_ROWS.slice(0, 3))
-    expect(SCORE_SHEETS[solo.id].playOrder).toHaveLength(24)
+    expect(SCORE_SHEETS[solo.id]).toBeUndefined()
+    expect(CASTLE_SCORE_MEASURE_COUNT).toBe(24)
+    expect(CASTLE_SCORE.map(({ number }) => number)).toEqual(Array.from({ length: 24 }, (_, index) => index + 1))
+    expect(CASTLE_SCORE_SYSTEMS.map(({ firstBar, lastBar }) => [firstBar, lastBar])).toEqual([
+      [1, 3], [4, 6], [7, 9], [10, 12], [13, 15], [16, 18], [19, 21], [22, 24],
+    ])
+    expect(validateCastleScore()).toEqual([])
+    expect(CASTLE_SCORE[0].events.filter((event) => event.rest)).toHaveLength(3)
+    expect(CASTLE_SCORE.some((bar) => bar.events.some((event) => event.arpeggio))).toBe(true)
+    expect(CASTLE_SCORE.some((bar) => bar.events.some((event) => event.slurAfter))).toBe(true)
+    expect(CASTLE_SCORE.every((bar) => bar.events.every((event) => event.notes.every((note) => note.fret >= 0)))).toBe(true)
+    expect(CASTLE_SCORE_SOURCE.sourceUrl).toContain('ukuleleba.com/22389.html')
   })
 
-  it('七份音乐谱面数据有效，六首站内谱卡的任务都映射到有效谱段', () => {
-    expect(Object.keys(SCORE_SHEETS)).toHaveLength(7)
+  it('天空之城用独立 SVG 记谱数据，其余六份音乐谱卡仍映射到有效谱段', () => {
+    expect(CASTLE_SCORE).toHaveLength(24)
+    expect(CASTLE_SCORE.flatMap((bar) => bar.events).some((event) => event.rest)).toBe(true)
+    expect(Object.keys(SCORE_SHEETS)).toHaveLength(6)
     for (const course of SONGS) {
+      expect(course.tasks).toHaveLength(8)
+      for (const task of course.tasks) expect(task.id).toBe(`${course.id}-stage-${task.stage}`)
+      if (course.id === 'castle-in-the-sky') {
+        expect(SCORE_SHEETS[course.id]).toBeUndefined()
+        for (const task of course.tasks) {
+          expect(task.scoreCue).toMatch(/网页内|参考谱|原谱/)
+          expect(getCastleScoreRows(task.stage).length).toBeGreaterThan(0)
+        }
+        continue
+      }
       const sheet = SCORE_SHEETS[course.id]
       expect(sheet).toBeDefined()
       expect(validateScoreSheet(sheet)).toEqual([])
@@ -128,19 +159,12 @@ describe('歌曲专属课程内容', () => {
           expect(note.fret).toBe(CHORDS[measure.chord].frets[chordStringIndex])
         }
       }
-      expect(course.tasks).toHaveLength(8)
       for (const task of course.tasks) {
-        expect(task.id).toBe(`${course.id}-stage-${task.stage}`)
-        if (course.id === 'castle-in-the-sky') {
-          expect(task.scoreCue).toMatch(/参考谱|原谱|截图/)
-          expect(getCastleScoreRows(task.stage).length).toBeGreaterThan(0)
-        } else {
-          expect(getTaskMeasureIds(sheet, task.stage).length).toBeGreaterThan(0)
-          expect(getTaskMeasureIds(sheet, task.stage).every((id) => Boolean(sheet.measures[id]))).toBe(true)
-          expect(getSimplifiedMeasureIds(sheet, task.stage)).toHaveLength(1)
-          expect(task.scoreCue).toContain('拾艺教学编配')
-          expect(task.scoreCue).not.toMatch(/打开参考曲谱|打开外部曲谱/)
-        }
+        expect(getTaskMeasureIds(sheet, task.stage).length).toBeGreaterThan(0)
+        expect(getTaskMeasureIds(sheet, task.stage).every((id) => Boolean(sheet.measures[id]))).toBe(true)
+        expect(getSimplifiedMeasureIds(sheet, task.stage)).toHaveLength(1)
+        expect(task.scoreCue).toContain('拾艺教学编配')
+        expect(task.scoreCue).not.toMatch(/打开参考曲谱|打开外部曲谱/)
       }
       expect(getTaskMeasureIds(sheet, 8)).toEqual(sheet.playOrder)
     }
