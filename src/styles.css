@@ -342,6 +342,11 @@ a { color: inherit; }
 .practice-score-head h4 { margin: 4px 0 0; font-family: var(--serif); font-size: 20px; }
 .practice-score-head > span { color: var(--muted-2); font-size: 12px; text-align: right; }
 .practice-score-help { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.reference-score-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.reference-score-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--muted); font-size: 13px; }
+.reference-score-row strong { color: var(--ink); font-weight: 600; }
+.reference-score-link { justify-self: start; text-decoration: none; }
+.reference-score-note { margin: 0; color: var(--muted-2); font-size: 12px; line-height: 1.6; }
 .practice-score-pages { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: 0; }
 .score-measure-card { min-width: 0; overflow: hidden; padding: 9px 8px 5px; border: 1px solid var(--line-soft); border-radius: 11px; background: var(--surface); }
 .score-measure-heading { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: var(--muted); font-size: 12px; }
@@ -631,6 +636,8 @@ a { color: inherit; }
   .practice-score-head { align-items: flex-start; }
   .practice-score-head h4 { font-size: 18px; }
   .practice-score-head > span { max-width: 112px; font-size: 11px; }
+  .reference-score-rows { grid-template-columns: 1fr; }
+  .reference-score-link { width: 100%; }
   .practice-score-pages { grid-template-columns: minmax(0, 1fr); }
   .score-measure-card { padding: 8px 9px 4px; }
   .score-measure-svg { max-height: 210px; }

@@ -54,6 +54,31 @@ export const STAGES = ['认识歌曲', '单个和弦', '和弦转换', '节奏�
 export const FINGERSTYLE_STAGES = ['认识四线谱', '右手拨弦', '单音旋律', '加入和声音', '前段慢练', '后段慢练', '连接全曲', '完整独奏']
 export type SongKind = Song['kind']
 
+export type CastleScoreRow = { row: number; firstBar: number; lastBar: number }
+export const CASTLE_SCORE_ROWS: CastleScoreRow[] = [1, 4, 7, 10, 13, 16, 19, 22].map((firstBar, index) => ({
+  row: index + 1,
+  firstBar,
+  lastBar: firstBar + 2,
+}))
+
+export function getCastleScoreRows(stage: number, simplified = false): CastleScoreRow[] {
+  const rows = CASTLE_SCORE_ROWS
+  if (simplified) {
+    if (stage === 1 || stage === 2 || stage === 3) return [{ ...rows[0], lastBar: rows[0].firstBar }]
+    if (stage === 4) return [{ ...rows[1], lastBar: rows[1].firstBar }]
+    if (stage === 5) return [{ ...rows[2], lastBar: rows[2].firstBar }]
+    if (stage === 6) return rows.slice(3, 4)
+    if (stage === 7) return rows.slice(0, 3)
+  }
+  if (stage === 1) return rows
+  if (stage === 2) return rows.slice(0, 1)
+  if (stage === 3) return [{ ...rows[0], lastBar: rows[0].firstBar }]
+  if (stage === 4) return rows.slice(1, 2)
+  if (stage === 5) return rows.slice(2, 3)
+  if (stage === 6) return rows.slice(3, 6)
+  return rows
+}
+
 type LessonDraft = Omit<LessonTask, 'id' | 'songId' | 'stage' | 'stageName' | 'tempoSteps' | 'scoreGuide'>
 
 const songConfigs: Omit<Song, 'tasks'>[] = [
@@ -71,7 +96,7 @@ const songConfigs: Omit<Song, 'tasks'>[] = [
     palette: (['plum', 'blue', 'clay', 'plum'] as const)[index], neteaseTrackId: undefined,
     route: item.route.map((label) => ({ label })),
     courseNote: item.id === 'castle-in-the-sky'
-      ? '已对照你提供的参考谱核对：标准调、无需夹变调夹、4/4 拍、约 92 BPM；一页谱面共 8 行、每行 3 小节，编号从 1 到 24。下面八步按谱面行与小节范围学习，实际音符直接弹参考谱，不再用通用自制音型代替。'
+      ? '本课程对应你提供的莉莉克丝版本：标准调、4/4 拍、约 92 BPM；谱面共 8 行，每行 3 小节，小节号分别从 1、4、7、10、13、16、19、22 开始。课程步骤按这些行号定位，请跟这份参考谱弹奏。'
       : `参考版本：${item.scoreUrl}。课程按 High-G 标准调弦设计；站内 TAB 练习为自制技巧练习，不冒充或复制参考谱中的原曲小节。站内节拍器速度和 4/4 仅为练习设置，不代表参考谱标注；原曲拍号与速度请以该参考谱为准。曲目署名：${item.artist}。`,
   })),
 ]
@@ -121,14 +146,14 @@ const fingerstyleGoals = [
 ] as const
 
 const skyScoreLessons: Partial<LessonDraft>[] = [
-  { title: '先认识这份参考谱', why: '这门课就跟着这一份谱，不再用别的练习音型代替歌曲。', section: '整页原谱', focus: '1 页 · 24 小节 · 4/4 · 92 BPM · 标准调', scoreCue: '已对照你提供的参考谱及截图：这张谱分 8 行，每行 3 小节，共第 1–24 小节；标注 4/4、标准调、约 92 BPM，不需要夹变调夹。', steps: ['点“打开参考曲谱”，打开这份独奏谱。', '四线 TAB 从上到下是 A、E、C、G；数字是品位，0 表示该弦空弦拨响。', '谱上的数字上下对齐时要同时拨；横向从左到右读，按音符时值保持拍子。'], success: '能在谱上找到第 1 小节，并说出 0 是空弦、数字是品位。', simplifiedSteps: ['打开参考谱，只看第 1 小节。', '指出 TAB 最上面 A 弦和最下面 G 弦。'], simplifiedSuccess: '能找到第 1 小节并辨认 A 弦、G 弦。' },
-  { title: '跟弹原谱第 1–3 小节', why: '先照原谱开头练右手，不再练与歌曲无关的空弦排列。', section: '原谱第 1–3 小节', focus: '从谱面标号 1 开始，跟原谱逐音拨弦', scoreCue: '这三小节就是第一行谱表。音符、弦和品位都以所选参考谱面为准；网站不另造音符。', steps: ['打开参考谱，找到第一行左上方标号“1”的位置。', '从左到右读每个 TAB 数字：先确定它在哪根弦，再按对应品位；0 不用按。', '每个音轻拨一次，遇到上下对齐的数字就同时拨，不对齐则按先后弹。'], success: '能照原谱弹完第 1–3 小节，弦和品位对应正确，慢速不中断。', simplifiedSteps: ['只练第 1 小节第一组音。', '先指出弦和品位，再一个音一个音弹。'], simplifiedSuccess: '第 1 小节第一组音能按谱弹对。' },
-  { title: '单独读弹第 1 小节', why: '第一次照曲谱演奏，先拿一小节练会看弦、认品位、拨出音。', section: '原谱第 1 小节', focus: '第一行的第 1 小节 · 逐音对照原谱', scoreCue: '对照原谱第一行第一个小节；不要参考本站通用练习音型。', steps: ['在标号 1 的第一行，从第一个数字开始。', '确认数字所在弦：上到下 A、E、C、G；数字 0 是空弦，其他数字是品位。', '按原谱节奏拨完这一小节，遇到上下对齐的数字同时拨。'], success: '能按原谱弹完第 1 小节，弦、品位和同时拨奏都读对。', simplifiedSteps: ['只弹第 1 小节开头第一组数字。', '先指出每个数字对应的弦和品位，再拨弦。'], simplifiedSuccess: '能正确读出并弹响第 1 小节开头。' },
-  { title: '照原谱练第 4–6 小节', why: '沿着谱面进入下一行，继续熟悉按弦与右手拨弦配合。', section: '原谱第 4–6 小节', focus: '第二行谱表 · 小节号 4–6', scoreCue: '第二行从印刷小节号 4 开始；只练这一行，不用自己猜段落或重复。', steps: ['在参考谱第二行找到标号“4”，按顺序练第 4–6 小节。', '每个数字对应所在弦的品位；空弦 0 不按，左手指尖靠近品丝按下。', '先逐小节弹对，再把这三小节连起来；同时出现的数字一起拨。'], success: '能按谱完成第 4–6 小节，按弦不闷音，节拍不中断。', simplifiedSteps: ['只练第 4 小节第一拍的音。', '逐根确认弦和品位，再继续下一音。'], simplifiedSuccess: '第 4 小节开头一拍的音能弹清楚。' },
-  { title: '慢练原谱第 7–9 小节', why: '把曲谱继续向后推进，每天练的都是这份独奏谱里的真实音符。', section: '原谱第 7–9 小节', focus: '第三行谱表 · 小节号 7–9', scoreCue: '参考谱第三行从小节号 7 开始；跟谱面数字与节奏，不套用通用音型。', steps: ['找到第三行标号“7”，先单独弹第 7 小节。', '再按谱弹第 8、9 小节；相邻音之间保持手指放松，不要抢拍。', '把第 7–9 小节连弹两遍，错音后继续跟拍，结束后再回看错处。'], success: '第 7–9 小节能从头连到尾，错音时不丢失拍点。', simplifiedSteps: ['今天只弹第 7 小节。', '每一拍先读弦和品位，再慢慢拨弦。'], simplifiedSuccess: '第 7 小节可以慢速弹完。' },
-  { title: '慢练原谱第 10–18 小节', why: '把中后段按谱面三行分组，继续推进真实曲谱内容。', section: '原谱第 10–18 小节', focus: '第四至六行谱表 · 小节号 10、13、16', scoreCue: '按印刷小节号 10、13、16 逐行练习，每行三小节，不跳过。', steps: ['先练第 10–12 小节，再练第 13–15 小节。', '接着练第 16–18 小节；每次同时出现的数字一起拨。', '把第 10–18 小节连起来，节拍器先用 48 BPM。'], success: '第 10–18 小节按谱分行练完并能慢速连弹。', simplifiedSteps: ['只练第 10–12 小节。', '读准弦和品位后再逐音弹。'], simplifiedSuccess: '第 10–12 小节能慢速弹完。' },
-  { title: '慢速连接原谱全曲', why: '先不追速度，把参考谱的全部小节按顺序接起来。', section: '原谱第 1–24 小节', focus: '从第 1 行到第 8 行 · 每行三小节', scoreCue: '按谱面小节号 1、4、7、10、13、16、19、22 依次换行，完整走到第 24 小节。', steps: ['每行先单独弹一遍，再按谱面顺序连接相邻两行。', '遇到卡点仍继续数拍；练习目的是完整走过 24 小节，不要求马上达到原速。', '从第 1 小节慢速连到第 24 小节，最后一个音按谱面收住。'], success: '能以慢速按谱从第 1 小节连续弹到第 24 小节。', simplifiedSteps: ['只连接第 1–3 行（第 1–9 小节）。', '熟悉后再连接剩下的行。'], simplifiedSuccess: '第 1–9 小节可以连续慢弹。' },
-  { title: '按原谱 92 BPM 完整独奏', why: '慢练后回到参考谱速度，完成这首歌完整的指弹编配。', section: '原谱第 1–24 小节', focus: '完整 24 小节 · 原谱 4/4 · 约 92 BPM', scoreCue: '从第 1 小节开始，按所选参考谱完成至第 24 小节。92 BPM 是谱面标注速度。', steps: ['先用已经稳定的速度弹完整首，确认小节顺序没有漏掉。', '每次把节拍器提高少量，逐步接近 92 BPM，不删音也不改节奏。', '最后按谱从头到尾完成一遍；错音后继续，不从头重来。'], success: '按参考谱从第 1–24 小节完整独奏，整体连贯度达到约 80%。', simplifiedSteps: ['回到能稳定弹完的慢速完成全曲。', '只在全曲稳定后再尝试提高 BPM。'], simplifiedSuccess: '可以按原谱从头到尾完成，不因失误停下。' },
+  { title: '先认识这份参考谱', why: '先认清这张谱的调弦、读谱方向和小节编号，后面每一步都能直接找到位置。', section: '整页原谱', focus: '8 行 · 每行 3 小节 · 4/4 · 约 92 BPM', scoreCue: '截图中的八行分别从小节号 1、4、7、10、13、16、19、22 开始。按“打开这份参考谱”后，可按这些编号找到练习位置。', steps: ['打开这份参考谱，确认从上到下的弦名是 A、E、C、G。', '每行左上角的小节号依次是 1、4、7、10、13、16、19、22；每行包含 3 小节。', '数字表示品位，0 表示空弦；上下对齐的数字同时拨，横向从左到右读。'], success: '能找到第 1 行和第 22 小节，并说出 0 代表空弦。', simplifiedSteps: ['只看第 1 行，找到小节号 1。', '指出 TAB 最上面的 A 弦和最下面的 G 弦。'], simplifiedSuccess: '能找到第 1 小节，并认出 A 弦与 G 弦。' },
+  { title: '跟弹原谱第 1–3 小节', why: '先沿截图第一行从头练一遍，熟悉按弦与拨弦的配合。', section: '原谱第 1–3 小节', focus: '第 1 行 · 小节号 1、2、3', scoreCue: '参考谱第一行左上角标着 1，依次练完这一行的三个小节。本站按小节号定位，不再显示另一套音符。', steps: ['找到第一行左上方的印刷小节号“1”。', '从左到右逐个看 TAB 数字；先确认所在弦，再按对应品位，0 不用按。', '一拍一拍跟原谱拨完第 1、2、3 小节；上下对齐的数字同时拨。'], success: '能跟原谱弹完第 1–3 小节，弦和品位对应正确，慢速不中断。', simplifiedSteps: ['只练第 1 小节第一组音。', '先指出每个数字所在的弦和品位，再慢慢拨响。'], simplifiedSuccess: '第 1 小节开头一组音能按谱弹对。' },
+  { title: '单独读弹第 1 小节', why: '缩小到一小节，集中练会读弦、认品位和辨认同时拨奏。', section: '原谱第 1 小节', focus: '第 1 行 · 只练小节号 1', scoreCue: '截图第一行包含第 1–3 小节；今天只看左侧的第 1 小节。', steps: ['在第一行找到第一个小节，从最左侧的音开始。', '确认数字所在弦：上到下 A、E、C、G；0 是空弦，其他数字是品位。', '按原谱节奏拨完第 1 小节；上下对齐的数字同时拨。'], success: '能按原谱弹完第 1 小节，弦、品位和同时拨奏都读对。', simplifiedSteps: ['只弹第 1 小节开头第一组数字。', '先指出每个数字对应的弦和品位，再拨弦。'], simplifiedSuccess: '能正确读出并弹响第 1 小节开头。' },
+  { title: '照原谱练第 4–6 小节', why: '第二行从第 4 小节开始；按这一行的印刷编号继续，不会和第一行错位。', section: '原谱第 4–6 小节', focus: '第 2 行 · 小节号 4、5、6', scoreCue: '参考谱第二行左上角标号“4”，练完这一行三个小节。', steps: ['在参考谱第二行找到小节号“4”，依次练第 4、5、6 小节。', '数字对应所在弦的品位；空弦 0 不按，左手指尖靠近品丝按下。', '先逐小节弹对，再连弹三小节；同一拍上下对齐的数字一起拨。'], success: '能按谱完成第 4–6 小节，按弦不闷音，节拍不中断。', simplifiedSteps: ['只练第 4 小节第一拍的音。', '逐根确认弦和品位，再继续下一音。'], simplifiedSuccess: '第 4 小节开头一拍的音能弹清楚。' },
+  { title: '慢练原谱第 7–9 小节', why: '继续按截图第三行练习，把新一行的指法放进稳定拍点里。', section: '原谱第 7–9 小节', focus: '第 3 行 · 小节号 7、8、9', scoreCue: '参考谱第三行左上角标号为“7”；这一步对应完整一行，共三个小节。', steps: ['找到第三行标号“7”，先单独弹第 7 小节。', '再按谱弹第 8、9 小节；相邻音之间放松手指，不要抢拍。', '把第 7–9 小节连弹两遍，错音后继续跟拍，结束后再回看错处。'], success: '第 7–9 小节能从头连到尾，错音时不丢失拍点。', simplifiedSteps: ['今天只弹第 7 小节。', '每一拍先读弦和品位，再慢慢拨弦。'], simplifiedSuccess: '第 7 小节可以慢速弹完。' },
+  { title: '慢练原谱第 10–18 小节', why: '这一步覆盖截图中间连续三行，按每行左侧的小节号分组练习。', section: '原谱第 10–18 小节', focus: '第 4–6 行 · 小节号 10、13、16', scoreCue: '参考谱中标号 10、13、16 的三行，每行三个小节；不要把行号当成需要跳过的小节。', steps: ['按参考谱先练第 10–12 小节，再练第 13–15 小节。', '接着练第 16–18 小节；每次上下对齐的数字一起拨。', '把第 10–18 小节连起来，节拍器先用 48 BPM。'], success: '第 10–18 小节按截图分行练完并能慢速连弹。', simplifiedSteps: ['只练第 10–12 小节。', '读准弦和品位后再逐音弹。'], simplifiedSuccess: '第 10–12 小节能慢速弹完。' },
+  { title: '慢速连接原谱全曲', why: '把已经分行练过的内容按截图顺序连起来，先保持拍子不断。', section: '原谱第 1–24 小节', focus: '第 1–8 行 · 小节号 1–24', scoreCue: '按截图上的起始号依次换行：1、4、7、10、13、16、19、22，完整走到第 24 小节。', steps: ['每行先单独弹一遍，再按谱面顺序连接相邻两行。', '第 19–24 小节也要弹到；遇到卡点仍继续数拍，不要求马上达到原速。', '从第 1 小节慢速连到第 24 小节，最后一个音按谱面收住。'], success: '能以慢速按谱从第 1 小节连续弹到第 24 小节。', simplifiedSteps: ['只连接第 1–3 行（第 1–9 小节）。', '熟悉后再连接剩下的行。'], simplifiedSuccess: '第 1–9 小节可以连续慢弹。' },
+  { title: '按原谱 92 BPM 完整独奏', why: '最后一遍沿用同一张谱，从第 1 小节走到第 24 小节，逐步回到标注速度。', section: '原谱第 1–24 小节', focus: '第 1–8 行 · 4/4 · 约 92 BPM', scoreCue: '参考谱的速度标注为约 92 BPM。仍按每行起始小节号 1、4、7、10、13、16、19、22 顺序演奏。', steps: ['先用已经稳定的速度弹完整首，确认八行都弹到。', '每次把节拍器提高少量，逐步接近 92 BPM，不删音也不改节奏。', '最后按谱从头到尾完成一遍；错音后继续，不从头重来。'], success: '按参考谱从第 1–24 小节完整独奏，整体连贯度达到约 80%。', simplifiedSteps: ['回到能稳定弹完的慢速完成全曲。', '只在全曲稳定后再尝试提高 BPM。'], simplifiedSuccess: '可以按原谱从头到尾完成，不因失误停下。' },
 ]
 
 export const SONGS: Song[] = songConfigs.map((song) => ({
@@ -151,7 +176,8 @@ export const SONGS: Song[] = songConfigs.map((song) => ({
     success: index < 2 ? '能按顺序清楚弹完图上的四个音，手腕放松。' : index === 3 ? '能慢速完成两个同时拨奏的拍点，两个音都清楚。' : index === 7 ? '能按所选参考版本从头到尾独奏一遍，整体连贯度达到约 80%。' : '能按参考谱完成今天这一个段落练习，音符顺序清楚，拍点不中断。',
     chords: [], bpm: index < 2 ? 48 : Math.max(48, Math.round(song.bpm * 0.55)), tab: notes.map((note, noteIndex) => ({ ...note, beat: index === 3 ? Math.floor(noteIndex / 2) : noteIndex })), simplifiedSteps: ['只弹 TAB 的前两个音，一次专注一个音。', '左手按住图上标出的品位，再轻拨对应弦；两个音之间停一下。'], simplifiedSuccess: '能慢慢弹清楚前两个音，弦和品位正确。',
   })) : lessonPlans[song.id]).map((draft, index) => {
-    const skyLesson = song.id === 'castle-in-the-sky' ? skyScoreLessons[index] : undefined
+    const isCastleReferenceCourse = song.id === 'castle-in-the-sky'
+    const skyLesson = isCastleReferenceCourse ? skyScoreLessons[index] : undefined
     const lesson = skyLesson ? { ...draft, ...skyLesson, tab: undefined, bpm: index === 7 ? 92 : 48 } : draft
     const focusChords = song.chords.filter((chord) => lesson.focus.includes(chord))
     const chords = song.kind === 'fingerstyle' ? [] : focusChords.length > 0 ? focusChords : lesson.chords.length > 0 ? lesson.chords : [song.chords[0]]
@@ -189,22 +215,22 @@ export const SONGS: Song[] = songConfigs.map((song) => ({
     const taskBpm = song.id === 'chengdu' && index === 7 ? targetBpm : lesson.bpm
     return {
       ...lesson,
-      title: `${song.title} · ${scoreTitles[index]}`,
-      section: scoreSection,
+      title: isCastleReferenceCourse ? lesson.title : `${song.title} · ${scoreTitles[index]}`,
+      section: isCastleReferenceCourse ? lesson.section : scoreSection,
       bpm: taskBpm,
-      why: index === 0
+      why: isCastleReferenceCourse ? lesson.why : index === 0
         ? '第一天就从这首歌的实际教学谱音符开始；今天只需要弹出眼前这一小节。'
         : song.kind === 'fingerstyle'
           ? '把旋律拆成小段、逐步加入伴奏音，既能听见曲子，也不会一次练太多。'
           : '和弦、旋律和节奏都直接标在下方谱卡里；分层练熟后再合起来。',
-      focus: `${lesson.section} · ${song.kind === 'fingerstyle' ? '旋律 TAB 与伴奏音' : '和弦、旋律 TAB 与扫弦'}`,
-      scoreCue: `下方谱卡是“拾艺教学编配”，已直接绘出今天要弹的小节。${song.kind === 'fingerstyle' ? '先看旋律音，再逐步加入伴奏音。' : '小节上方显示和弦，四线谱显示旋律 TAB，箭头显示扫弦方向。'}不需要打开或另找外部曲谱。`,
-      steps: scoreSteps,
-      simplifiedSteps: reducedScoreSteps,
-      success: index === 7
+      focus: isCastleReferenceCourse ? lesson.focus : `${lesson.section} · ${song.kind === 'fingerstyle' ? '旋律 TAB 与伴奏音' : '和弦、旋律 TAB 与扫弦'}`,
+      scoreCue: isCastleReferenceCourse ? lesson.scoreCue : `下方谱卡是“拾艺教学编配”，已直接绘出今天要弹的小节。${song.kind === 'fingerstyle' ? '先看旋律音，再逐步加入伴奏音。' : '小节上方显示和弦，四线谱显示旋律 TAB，箭头显示扫弦方向。'}不需要打开或另找外部曲谱。`,
+      steps: isCastleReferenceCourse ? lesson.steps : scoreSteps,
+      simplifiedSteps: isCastleReferenceCourse ? lesson.simplifiedSteps : reducedScoreSteps,
+      success: isCastleReferenceCourse ? lesson.success : index === 7
         ? song.kind === 'fingerstyle' ? '能跟着站内谱卡从头到尾完成独奏，整首连贯度达到约 80%。' : '能跟着站内谱卡从头到尾完成伴奏与弹唱，整首连贯度达到约 80%。'
         : `能跟着今天显示的谱段完成练习；遇到错音仍能继续保持拍点。`,
-      simplifiedSuccess: '能慢速完成当前缩小后的谱段；手指放松，音符清楚即可。',
+      simplifiedSuccess: isCastleReferenceCourse ? lesson.simplifiedSuccess : '能慢速完成当前缩小后的谱段；手指放松，音符清楚即可。',
       scoreGuide: {
         section: lesson.section,
         timeSignature: song.timeSignature,

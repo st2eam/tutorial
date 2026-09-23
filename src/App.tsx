@@ -4,7 +4,7 @@ import {
   Clock3, Download, ExternalLink, Guitar, Home, LockKeyhole, Music2,
   Pause, Play, Plus, RotateCcw, Settings, Shapes, Sparkles, Sprout, Upload, Volume2, X,
 } from 'lucide-react'
-import { CHORDS, findSong, findTask, SONGS, STAGES, FINGERSTYLE_STAGES, type ChordName, type Song, type SongKind } from './data/course'
+import { CHORDS, findSong, findTask, getCastleScoreRows, SONGS, STAGES, FINGERSTYLE_STAGES, type ChordName, type Song, type SongKind } from './data/course'
 import { CATEGORIES, findGuidedCourse, findSkill, GUIDED_COURSES, SKILLS, type GuidedCourse } from './data/catalog'
 import { getSimplifiedMeasureIds, getTaskMeasureIds, SCORE_SHEETS, type ScoreMeasure, type ScoreSheet, type UkuleleString } from './data/score-sheets'
 import {
@@ -209,6 +209,17 @@ function PracticeScoreCard({ song, task, bpm, simplified, onChordClick }: { song
     {pages.length > 1 && <button className="button button--quiet score-autoflip" type="button" onClick={() => setAutoFlip((value) => !value)}>{autoFlip ? <Pause size={15} /> : <Play size={15} />}{autoFlip ? '暂停自动翻页' : '按节拍自动翻页'}</button>}
     <button className="button button--quiet score-preview" type="button" onClick={playCurrentPage} disabled={playing}>{playing ? <Pause size={15} /> : <Play size={15} />}{playing ? '正在试听这段' : '试听当前谱段'}</button>
     <p className="practice-score-legend"><span><i className="score-legend-dot score-legend-dot--melody" />旋律</span><span><i className="score-legend-dot score-legend-dot--harmony" />伴奏音</span><span>↓ 下扫 · ↑ 上扫</span><span>左手 1 食指 · 2 中指 · 3 无名指 · 4 小指</span></p>
+  </section>
+}
+
+function CastleReferenceGuide({ song, task, simplified }: { song: Song; task: NonNullable<ReturnType<typeof findTask>>; simplified: boolean }) {
+  const rows = getCastleScoreRows(task.stage, simplified)
+  return <section className="practice-score-card reference-score-card" aria-label={`${song.title}参考谱定位`}>
+    <div className="practice-score-head"><div><span className="eyebrow">参考谱定位 · 原谱</span><h4>{task.stage === 1 ? '这张谱怎么找小节' : simplified ? '今天先练这一小段' : '今天练这几小节'}</h4></div><span>4/4 · 约 92 BPM</span></div>
+    <p className="practice-score-help">按截图左侧印刷的小节号定位。每行 3 小节，TAB 从上到下是 A、E、C、G 弦；0 是空弦，其他数字是品位。</p>
+    <div className="reference-score-rows">{rows.map(({ row, firstBar, lastBar }) => <div className="reference-score-row" key={`${row}-${firstBar}-${lastBar}`}><span>第 {row} 行</span><strong>{firstBar === lastBar ? `第 ${firstBar} 小节` : `第 ${firstBar}–${lastBar} 小节`}</strong></div>)}</div>
+    <a className="button button--secondary reference-score-link" href={song.scoreUrl} target="_blank" rel="noreferrer"><ExternalLink size={15} />打开这份参考谱</a>
+    <p className="reference-score-note">课程步骤、谱面行号和节拍器对应这份参考谱。跟谱上的音符练习。</p>
   </section>
 }
 
@@ -633,7 +644,9 @@ function PracticePage({ song, task, item, onBack, onFinish }: { song: Song; task
       <div className="lesson-divider" />
       <div className="lesson-label"><span className="lesson-label-dot lesson-label-dot--clay" />跟着做</div>
       <ol className="practice-steps">{visibleSteps.map((step, index) => <li key={step}><span>{String(index + 1).padStart(2, '0')}</span><p>{step}</p></li>)}</ol>
-      <PracticeScoreCard song={song} task={task} bpm={bpm} simplified={simplified} onChordClick={setOpenChord} />
+      {song.id === 'castle-in-the-sky'
+        ? <CastleReferenceGuide song={song} task={task} simplified={simplified} />
+        : <PracticeScoreCard song={song} task={task} bpm={bpm} simplified={simplified} onChordClick={setOpenChord} />}
       {visibleChords.length > 0 && <div className="lesson-resource"><div className="resource-head"><div><span className="eyebrow">今天会用到</span><h4>和弦指法</h4></div><span className="resource-meta">正对指板，从左到右：G · C · E · A</span></div><div className="chord-grid">{visibleChords.map((chord) => <ChordDiagram name={chord} onClick={() => setOpenChord(chord)} key={chord} />)}</div><p className="chord-legend">圆点数字表示按弦手指：1 食指 · 2 中指 · 3 无名指 · 4 小指；○ 表示空弦。</p></div>}
       <div className="lesson-success"><CheckCircle2 size={18} /><div><strong>完成标准</strong><p>{successText}</p></div></div>
     </article>
