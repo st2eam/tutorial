@@ -350,10 +350,10 @@ function TodayPage({ song, item, task, onContinue, onSongs }: { song: Song; item
 function PracticePage({ song, task, item, onBack, onFinish }: { song: Song; task: NonNullable<ReturnType<typeof findTask>>; item: ReturnType<typeof getSongProgress>; onBack: () => void; onFinish: () => void }) {
   const simplified = item.simplifiedTaskId === task.id
   const isReview = item.reviewTaskId === task.id
-  const bpm = simplified ? Math.max(44, Math.round(task.bpm * 0.7)) : task.bpm
-  const visibleSteps = simplified ? ['只练这一个和弦或动作，放慢速度，重复四次。'] : task.steps
+  const bpm = simplified ? task.tempoSteps[0] : task.bpm
+  const visibleSteps = simplified ? task.simplifiedSteps : task.steps
   const visibleChords = simplified ? task.chords.slice(0, 1) : task.chords
-  const successText = simplified ? '慢速重复四次，找到这个动作的手感即可。' : task.success
+  const successText = simplified ? task.simplifiedSuccess : task.success
   return <div className="practice-page">
     <button className="back-button" type="button" onClick={onBack}><ArrowLeft size={16} /> 返回今日</button>
     <div className="practice-heading"><div><span className="eyebrow">{song.title} <span className="eyebrow-separator">/</span> {task.stageName}</span><h2>{task.title}</h2></div><span className="lesson-number">{String(task.stage).padStart(2, '0')} <i /> 08</span></div>
@@ -361,6 +361,7 @@ function PracticePage({ song, task, item, onBack, onFinish }: { song: Song; task
     <article className="lesson-card">
       <div className="lesson-card-top"><span className="lesson-label"><span className="lesson-label-dot" />今天学什么</span><span className="lesson-tag">{task.section}</span></div>
       <h3>{task.title}</h3><p className="lesson-why">{task.why}</p>
+      <div className="lesson-map"><div className="lesson-map-focus"><span className="eyebrow">练习焦点</span><strong>{task.focus}</strong></div><p>{task.scoreCue}</p><div className="tempo-ladder"><span>速度阶梯</span>{task.tempoSteps.map((step, index) => <span className={step === bpm ? 'tempo-step is-current' : 'tempo-step'} key={`${step}-${index}`}>{step} BPM</span>)}</div></div>
       <div className="lesson-divider" />
       <div className="lesson-label"><span className="lesson-label-dot lesson-label-dot--clay" />跟着做</div>
       <ol className="practice-steps">{visibleSteps.map((step, index) => <li key={step}><span>{String(index + 1).padStart(2, '0')}</span><p>{step}</p></li>)}</ol>
@@ -393,7 +394,7 @@ function SongPage({ song, progress, onStart, onPractice, onRoute }: { song: Song
   const started = Boolean(progress.songs[song.id])
   const lessonsComplete = song.tasks.every((lesson) => item.completedTaskIds.includes(lesson.id))
   return <div className="page-content song-detail-page">
-    <div className="detail-hero"><Artwork song={song} large /><div className="detail-meta"><span className="pill">{song.mood}</span><h2>{song.title}</h2><p>{song.artist} <span>·</span> {song.key} <span>·</span> 参考速度 {song.bpm} BPM</p><p className="detail-intro">{song.intro}</p><div className="detail-links"><a href={song.sourceUrl} target="_blank" rel="noreferrer" className="listen-link">去官方平台听原曲 <ExternalLink size={14} /></a><a href={song.scoreUrl} target="_blank" rel="noreferrer" className="listen-link">查看参考曲谱 <ExternalLink size={14} /></a></div></div></div>
+    <div className="detail-hero"><Artwork song={song} large /><div className="detail-meta"><span className="pill">{song.mood}</span><h2>{song.title}</h2><p>{song.artist} <span>·</span> {song.key} <span>·</span> 课程目标 {song.bpm} BPM</p><p className="detail-intro">{song.intro}</p><div className="detail-links"><a href={song.sourceUrl} target="_blank" rel="noreferrer" className="listen-link">去官方平台听原曲 <ExternalLink size={14} /></a><a href={song.scoreUrl} target="_blank" rel="noreferrer" className="listen-link">查看参考曲谱 <ExternalLink size={14} /></a></div><p className="detail-course-note">{song.courseNote}</p></div></div>
     <div className="detail-progress"><div className="detail-progress-head"><div><span className="eyebrow">学习路径</span><h3>从一个和弦，到完整弹唱</h3></div><span>{item.completedTaskIds.length} / {song.tasks.length} 步</span></div><div className="progress-track progress-track--large"><span style={{ width: `${Math.round(item.completedTaskIds.length / song.tasks.length * 100)}%` }} /></div>
       <div className="journey-list">{STAGES.map((stage, index) => {
         const done = item.completedTaskIds.includes(song.tasks[index].id)

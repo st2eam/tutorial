@@ -207,6 +207,15 @@ a { color: inherit; }
 .lesson-tag { padding: 5px 9px; border-radius: 6px; background: #f4eee3; color: var(--muted-2); font-size: 10px; }
 .lesson-card > h3 { margin: 16px 0 6px; font-family: var(--serif); font-size: 22px; font-weight: 600; }
 .lesson-why { max-width: 610px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.lesson-map { display: grid; gap: 9px; margin-top: 14px; padding: 13px 14px; border: 1px solid #d7dfd0; border-radius: 11px; background: #f1f4ed; }
+.lesson-map-focus { display: grid; gap: 4px; }
+.lesson-map-focus .eyebrow { margin: 0; color: var(--green); font-size: 9px; }
+.lesson-map-focus strong { color: var(--ink); font-family: var(--serif); font-size: 15px; font-weight: 600; line-height: 1.5; }
+.lesson-map > p { margin: 0; color: #514b43; font-size: 11px; line-height: 1.7; }
+.tempo-ladder { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--muted); font-size: 10px; }
+.tempo-ladder > span:first-child { margin-right: 2px; }
+.tempo-step { padding: 5px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tempo-step.is-current { border-color: var(--green); background: var(--green); color: #fffdf8; }
 .lesson-divider { height: 1px; margin: 17px 0; background: var(--line-soft); }
 .practice-steps { display: grid; gap: 10px; margin: 13px 0 0; padding: 0; list-style: none; }
 .practice-steps li { display: flex; align-items: flex-start; gap: 10px; }
@@ -290,6 +299,7 @@ a { color: inherit; }
 .detail-meta > p span { color: #b4a998; }
 .detail-meta .detail-intro { margin-top: 4px; color: var(--muted-2); line-height: 1.6; }
 .detail-links { display: flex; flex-wrap: wrap; gap: 5px 15px; }
+.detail-meta > .detail-course-note { max-width: 590px; margin: 0; color: var(--muted-2); font-size: 10px; line-height: 1.7; }
 .listen-link { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; color: var(--green); font-size: 10px; text-decoration: none; }
 .listen-link:hover { text-decoration: underline; }
 .detail-progress, .route-confirmations { padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 253, 248, .82); }

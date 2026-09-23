@@ -1,8 +1,35 @@
 import { describe, expect, it } from 'vitest'
-import { SONGS } from '../data/course'
+import { SONGS, STAGES } from '../data/course'
 import { currentTask, emptyProgress, getSongProgress, markSongRoute, recordFeedback, startSong, validateProgressBackup } from './progress'
 
 const song = SONGS[0]
+
+describe('歌曲专属课程内容', () => {
+  it('每首歌都有完整八阶段且每一步含谱面焦点、降级练习和速度阶梯', () => {
+    for (const course of SONGS) {
+      expect(course.tasks).toHaveLength(STAGES.length)
+      expect(new Set(course.tasks.map((task) => task.title)).size).toBe(STAGES.length)
+
+      for (const [index, task] of course.tasks.entries()) {
+        expect(task.stageName).toBe(STAGES[index])
+        expect(task.focus.length).toBeGreaterThan(0)
+        expect(task.scoreCue.length).toBeGreaterThan(0)
+        expect(task.steps.length).toBeGreaterThanOrEqual(2)
+        expect(task.simplifiedSteps.length).toBeGreaterThan(0)
+        expect(task.tempoSteps[0]).toBe(task.bpm)
+        expect(task.tempoSteps[2]).toBe(course.bpm)
+        expect(task.tempoSteps[0]).toBeLessThanOrEqual(task.tempoSteps[1])
+        expect(task.tempoSteps[1]).toBeLessThanOrEqual(task.tempoSteps[2])
+      }
+    }
+  })
+
+  it('三首歌每个阶段都有各自的具体练习任务', () => {
+    for (let stageIndex = 0; stageIndex < STAGES.length; stageIndex += 1) {
+      expect(new Set(SONGS.map((course) => course.tasks[stageIndex].title)).size).toBe(SONGS.length)
+    }
+  })
+})
 
 describe('学习进度规则', () => {
   it('顺利完成后解锁下一步', () => {
