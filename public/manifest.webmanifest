@@ -1,0 +1,11 @@
+{
+  "name": "拾音 · 尤克里里练习",
+  "short_name": "拾音",
+  "description": "今天，只练下一小步。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f0e5",
+  "theme_color": "#f6f0e5",
+  "icons": [{ "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
