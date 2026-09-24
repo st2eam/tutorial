@@ -337,35 +337,62 @@ a { color: inherit; }
 .practice-footer > span { display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--muted-2); font-size: 10px; }
 
 /* In-site, self-authored score card */
-.practice-score-card { display: grid; gap: 14px; min-width: 0; padding: 17px; border: 1px solid var(--line); border-radius: 14px; background: #fbf7f4; }
+.practice-score-card { display: grid; gap: 14px; min-width: 0; padding: 17px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .score-player-card { min-width: 0; overflow: hidden; }
 .score-player-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
 .score-player-toolbar > button { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--muted); font: inherit; cursor: pointer; }
 .score-player-toolbar > button.is-active { border-color: #c9b7ce; background: #f0eaf1; color: var(--primary); font-weight: 650; }
 .score-staff-toggle, .score-player-controls > label { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; }
 .score-player-toolbar input, .score-player-controls input { width: 17px; height: 17px; accent-color: var(--primary); }
-.score-player-viewport { width: 100%; min-width: 0; overflow: hidden; border: 1px solid var(--line-soft); border-radius: 10px; background: #fff; }
+.score-player-viewport { width: 100%; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #fffefa; }
 .score-player-notation { width: 100%; max-width: 100%; min-width: 0; }
 .score-player-notation svg { display: block; width: 100%; max-width: 100%; height: auto; }
 .score-player-notation .at-content { max-width: 100%; }
-.score-player-notation .at-cursor-bar { fill: rgba(44, 122, 180, .12); }
-.score-player-notation .at-cursor-beat { width: 3px; fill: #2477b5; opacity: .9; }
-.score-player-notation .at-highlight { fill: #2477b5; stroke: #2477b5; }
+.score-player-notation .at-cursor-bar { fill: rgba(104, 70, 95, .13); }
+.score-player-notation .at-cursor-beat { width: 3px; fill: var(--primary); opacity: .9; }
+.score-player-notation .at-highlight { fill: var(--primary); stroke: var(--primary); }
 .score-player-status { margin: 0; padding: 18px; color: var(--muted); font-size: 13px; text-align: center; }
 .score-player-error { color: #a33636; }
-.score-player-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.score-player-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 15px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: 11px; background: #f8f1f5; }
 .score-player-controls .button { min-height: 44px; }
 .score-player-controls > label { min-height: 44px; }
 .score-speed-control select { min-height: 36px; padding: 0 26px 0 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
 .score-follow-position { color: var(--primary); font-size: 12px; font-variant-numeric: tabular-nums; }
 .score-player-legend { display: flex; flex-wrap: wrap; gap: 7px 16px; color: var(--muted); font-size: 12px; }
-.score-player-loop-note { display: flex; align-items: center; gap: 5px; margin: 0; color: var(--primary); font-size: 12px; }
-.score-player-card a:focus-visible, .score-player-card button:focus-visible, .score-player-card select:focus-visible, .score-player-card input:focus-visible { outline: 3px solid #438db4; outline-offset: 2px; }
+.score-player-card a:focus-visible, .score-player-card button:focus-visible, .score-player-card select:focus-visible, .score-player-card input:focus-visible, .score-player-settings summary:focus-visible { outline: 3px solid var(--clay); outline-offset: 2px; }
 .score-player-card .practice-score-controls button { min-height: 44px; }
 .practice-score-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
-.practice-score-head h4 { margin: 4px 0 0; font-family: var(--serif); font-size: 20px; }
-.practice-score-head > span { color: var(--muted-2); font-size: 12px; text-align: right; }
+.practice-score-head h4 { margin: 0; color: var(--ink); font-family: var(--serif); font-size: 20px; }
+.practice-score-head p { margin: 5px 0 0; color: var(--muted-2); font-size: 12px; }
+.practice-score-head > span { max-width: 48%; color: var(--primary); font-size: 12px; line-height: 1.5; text-align: right; }
 .practice-score-help { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.score-player-settings { overflow: hidden; border: 1px solid var(--line-soft); border-radius: 11px; background: #fbf7fa; }
+.score-player-settings summary { display: flex; min-height: 46px; align-items: center; gap: 8px; padding: 0 13px; color: var(--primary); font-size: 13px; font-weight: 650; cursor: pointer; list-style: none; }
+.score-player-settings summary::-webkit-details-marker { display: none; }
+.score-player-settings summary::after { width: 7px; height: 7px; margin-left: auto; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; content: ''; transform: rotate(45deg) translateY(-2px); transition: transform .18s ease; }
+.score-player-settings[open] summary::after { transform: rotate(225deg) translate(-2px, -1px); }
+.score-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; padding: 5px 13px 13px; border-top: 1px solid var(--line-soft); }
+.score-setting-volume { display: grid; grid-column: 1 / -1; gap: 5px; padding: 4px 0; color: var(--muted); font-size: 12px; }
+.score-setting-volume > span { display: flex; align-items: center; gap: 6px; }
+.score-setting-volume b { margin-left: auto; color: var(--primary); font-variant-numeric: tabular-nums; font-weight: 600; }
+.score-setting-volume input { width: 100%; margin: 5px 0 1px; accent-color: var(--primary); }
+.score-setting-check { display: flex; min-height: 40px; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.score-setting-check input { width: 17px; height: 17px; accent-color: var(--primary); }
+.score-setting-loop { grid-column: 1 / -1; margin-top: 3px; border-top: 1px solid var(--line-soft); padding-top: 8px; color: var(--ink); font-weight: 600; }
+.score-range-select { display: grid; gap: 5px; color: var(--muted-2); font-size: 11px; }
+.score-range-select select { width: 100%; min-width: 0; min-height: 40px; padding: 0 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; }
+.score-range-current, .score-font-reset, .score-font-import { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 6px; padding: 0 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--primary); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.score-range-current { align-self: end; }
+.score-setting-soundfont { display: flex; grid-column: 1 / -1; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 3px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.score-setting-soundfont > div { display: grid; flex: 1 1 180px; gap: 3px; min-width: 0; }
+.score-setting-soundfont strong { color: var(--ink); font-size: 12px; }
+.score-setting-soundfont > div > span { overflow: hidden; color: var(--muted-2); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.score-player-loop-status { margin: -5px 0 0; color: var(--primary); font-size: 12px; }
+.score-font-import { position: relative; overflow: hidden; }
+.score-font-import input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.score-font-import:focus-within { outline: 3px solid var(--clay); outline-offset: 2px; }
+.score-font-import:has(input:disabled), .score-font-reset:disabled { opacity: .55; cursor: wait; }
+.score-font-error { flex-basis: 100%; color: #a33636; font-size: 12px; }
 .reference-score-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .reference-score-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--muted); font-size: 13px; }
 .reference-score-row strong { color: var(--ink); font-weight: 600; }
@@ -665,7 +692,7 @@ a { color: inherit; }
   .score-player-toolbar { display: grid; grid-template-columns: 1fr 1fr; }
   .score-player-toolbar > button { justify-content: center; padding: 0 8px; font-size: 12px; }
   .score-player-toolbar > label { grid-column: 1 / -1; }
-  .score-player-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; }
+  .score-player-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; padding: 8px; }
   .score-player-controls > * { min-width: 0; }
   .score-player-controls .button { width: 100%; justify-content: center; }
   .score-speed-control { justify-content: space-between; }
@@ -673,13 +700,18 @@ a { color: inherit; }
   .score-player-notation svg { max-width: 100%; }
   .practice-score-head { align-items: flex-start; }
   .practice-score-head h4 { font-size: 18px; }
-  .practice-score-head > span { max-width: 112px; font-size: 11px; }
+  .practice-score-head > span { max-width: 44%; font-size: 11px; }
   .reference-score-rows { grid-template-columns: 1fr; }
   .reference-score-link { width: 100%; }
   .practice-score-pages { grid-template-columns: minmax(0, 1fr); }
   .score-measure-card { padding: 8px 9px 4px; }
   .score-measure-svg { max-height: 210px; }
   .practice-score-help { font-size: 14px; }
+  .score-settings-grid { gap: 7px 10px; padding-inline: 10px; }
+  .score-setting-check { font-size: 11px; }
+  .score-setting-soundfont { align-items: stretch; }
+  .score-setting-soundfont > div { flex-basis: 100%; }
+  .score-font-import, .score-font-reset { flex: 1 1 auto; }
   .practice-score-legend { font-size: 12px; }
   .castle-score-footer { align-items: flex-start; flex-direction: column; }
   body { background-size: 9px 9px; }

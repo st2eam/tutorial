@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, BookOpen, Pause, Play, Repeat2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, AudioLines, BookOpen, Pause, Play, RotateCcw, Volume2 } from 'lucide-react'
 import type { AlphaTabApi as AlphaTabApiType } from '@coderline/alphatab'
 import type { LessonTask, Song } from '../data/course'
 import { COURSE_SCORE_MANIFEST } from '../data/score-manifest'
@@ -33,9 +33,20 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
   const [mode, setMode] = useState<ScoreMode>('task')
   const [staffMode, setStaffMode] = useState<'tab' | 'scoreTab'>('tab')
   const [autoFollow, setAutoFollow] = useState(false)
-  const [loopPage, setLoopPage] = useState(false)
+  const [loopRangeEnabled, setLoopRangeEnabled] = useState(false)
+  const [loopStartIndex, setLoopStartIndex] = useState(0)
+  const [loopEndIndex, setLoopEndIndex] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(1)
+  const [volume, setVolume] = useState(0.82)
+  const [metronomeEnabled, setMetronomeEnabled] = useState(false)
+  const [countInEnabled, setCountInEnabled] = useState(false)
+  const [customSoundFontName, setCustomSoundFontName] = useState<string | null>(null)
+  const [soundFontMessage, setSoundFontMessage] = useState('使用内置尤克里里音色')
+  const [soundFontError, setSoundFontError] = useState('')
+  const [soundFontLoading, setSoundFontLoading] = useState(false)
+  const soundFontNameRef = useRef<string | null>(null)
+  const customSoundFontPendingRef = useRef(false)
   const [followBar, setFollowBar] = useState<number | null>(null)
   const displayRef = useRef({ pageFirst: 1, barCount: 1, pageSize: 1, staffMode: 'tab' as 'tab' | 'scoreTab' })
   const followRef = useRef({ autoFollow: false, mode: 'task' as ScoreMode, pages: [] as ReturnType<typeof makeScorePages>, taskRouteIndexes: [] as number[] })
@@ -45,6 +56,7 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
   const taskRouteIndexes = useMemo(() => getTaskRouteIndexes(song.id, task.stage, simplified), [song.id, task.stage, simplified])
   const taskBars = useMemo(() => getTaskScoreBars(song.id, task.stage, simplified), [song.id, task.stage, simplified])
   const visibleBars = mode === 'complete' ? Array.from({ length: manifest.barCount }, (_, index) => index + 1) : taskBars
+  const lastVisibleIndex = Math.max(0, visibleBars.length - 1)
   const pages = useMemo(() => makeScorePages(visibleBars, pageSize, mode === 'task'), [visibleBars.join(','), pageSize, mode])
   const activePage = Math.min(pageIndex, Math.max(0, pages.length - 1))
   const page = pages[activePage] ?? { bars: [], routeIndexes: [] }
@@ -77,10 +89,12 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
   useEffect(() => {
     setPageIndex(0)
     setAutoFollow(false)
-    setLoopPage(false)
+    setLoopRangeEnabled(false)
+    setLoopStartIndex(0)
+    setLoopEndIndex(Math.max(0, visibleBars.length - 1))
     setSpeed(1)
     stopPlayback()
-  }, [task.id, simplified, mode, pageSize, stopPlayback])
+  }, [task.id, simplified, mode, pageSize, song.id, visibleBars.length, stopPlayback])
 
   useEffect(() => {
     let disposed = false
@@ -109,15 +123,31 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
         },
       })
       apiRef.current = api
-      api.error.on((issue) => { if (!disposed) setError(issue.message || '曲谱加载失败') })
+      api.error.on((issue) => {
+        if (disposed) return
+        if (customSoundFontPendingRef.current) {
+          customSoundFontPendingRef.current = false
+          soundFontNameRef.current = null
+          setCustomSoundFontName(null)
+          setSoundFontLoading(false)
+          setSoundFontError('这个音色文件无法读取，已恢复内置音色。')
+          setSoundFontMessage('使用内置尤克里里音色')
+          api!.resetSoundFonts()
+          api!.loadSoundFont(soundFontUrl, false)
+        } else setError(issue.message || '曲谱加载失败')
+      })
+      api.soundFontLoaded.on(() => {
+        if (disposed) return
+        customSoundFontPendingRef.current = false
+        setSoundFontLoading(false)
+        setSoundFontError('')
+        setSoundFontMessage(soundFontNameRef.current ? `已载入：${soundFontNameRef.current}` : '使用内置尤克里里音色')
+      })
       api.playerReady.on(() => { if (!disposed) setReady(true) })
       api.playerStateChanged.on((state) => {
         if (disposed) return
         setPlaying(state.state === 1)
-        if (state.stopped) {
-          setFollowBar(null)
-          setLoopPage(false)
-        }
+        if (state.stopped) setFollowBar(null)
       })
       api.playerPositionChanged.on((position) => {
         if (disposed) return
@@ -158,6 +188,14 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
 
   useEffect(() => {
     const api = apiRef.current
+    if (!api) return
+    api.masterVolume = volume
+    api.metronomeVolume = metronomeEnabled ? 0.48 : 0
+    api.countInVolume = countInEnabled ? 0.58 : 0
+  }, [volume, metronomeEnabled, countInEnabled, ready])
+
+  useEffect(() => {
+    const api = apiRef.current
     if (!api?.score) return
     api.settings.display.startBar = pageFirst
     api.settings.display.barCount = page.bars.length || 1
@@ -187,12 +225,25 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
     } else routeIndexes = routeBars.map((_, index) => index)
     let occurrenceStart = routeIndexes[page.routeIndexes[0] ?? 0] ?? 0
     let occurrenceEnd = routeIndexes[page.routeIndexes[page.routeIndexes.length - 1] ?? 0] ?? occurrenceStart
-    if (mode === 'complete') {
+    if (loopRangeEnabled && mode === 'task') {
+      occurrenceStart = routeIndexes[Math.min(loopStartIndex, routeIndexes.length - 1)] ?? occurrenceStart
+      occurrenceEnd = routeIndexes[Math.min(loopEndIndex, routeIndexes.length - 1)] ?? occurrenceStart
+    } else if (mode === 'complete') {
       const pageRouteIndex = routeBars.findIndex((_, index) => page.bars.every((bar, offset) => routeBars[index + offset] === bar))
       occurrenceStart = Math.max(0, pageRouteIndex)
       occurrenceEnd = Math.max(occurrenceStart, occurrenceStart + page.bars.length - 1)
+      if (loopRangeEnabled) {
+        const firstBar = visibleBars[Math.min(loopStartIndex, lastVisibleIndex)]
+        const lastBar = visibleBars[Math.min(loopEndIndex, lastVisibleIndex)]
+        const selectedStart = routeBars.indexOf(firstBar)
+        const selectedEnd = routeBars.findIndex((bar, index) => index >= selectedStart && bar === lastBar)
+        if (selectedStart >= 0 && selectedEnd >= selectedStart) {
+          occurrenceStart = selectedStart
+          occurrenceEnd = selectedEnd
+        }
+      }
     }
-    const endIndex = loopPage
+    const endIndex = loopRangeEnabled
       ? Math.max(occurrenceStart, occurrenceEnd)
       : autoFollow ? routeIndexes[routeIndexes.length - 1] ?? routeBars.length - 1 : Math.max(occurrenceStart, occurrenceEnd)
     const start = ticks[occurrenceStart]?.start ?? 0
@@ -211,17 +262,83 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
     const range = playbackTickRange()
     if (!range) return
     api.playbackRange = range
-    api.isLooping = loopPage
+    api.isLooping = loopRangeEnabled
     api.tickPosition = range.startTick
     api.play()
   }
 
-  function toggleLoop() {
-    setLoopPage((current) => {
-      const next = !current
-      if (apiRef.current) apiRef.current.isLooping = next
-      return next
-    })
+  function toggleLoopRange() {
+    stopPlayback()
+    setLoopRangeEnabled((current) => !current)
+  }
+
+  function updateLoopStart(value: number) {
+    stopPlayback()
+    const next = Math.max(0, Math.min(lastVisibleIndex, value))
+    setLoopStartIndex(next)
+    setLoopEndIndex((current) => Math.max(current, next))
+  }
+
+  function updateLoopEnd(value: number) {
+    stopPlayback()
+    setLoopEndIndex(Math.max(loopStartIndex, Math.min(lastVisibleIndex, value)))
+  }
+
+  function setLoopToCurrentPage() {
+    stopPlayback()
+    const start = page.routeIndexes[0] ?? visibleBars.indexOf(pageFirst)
+    const end = page.routeIndexes[page.routeIndexes.length - 1] ?? visibleBars.lastIndexOf(pageLast)
+    setLoopStartIndex(Math.max(0, start))
+    setLoopEndIndex(Math.max(start, end))
+    setLoopRangeEnabled(true)
+  }
+
+  async function loadCustomSoundFont(file?: File) {
+    if (!file) return
+    const api = apiRef.current
+    if (!api || !ready) return
+    if (!/\.(sf2|sf3)$/i.test(file.name)) {
+      setSoundFontError('请选择 .sf2 或 .sf3 音色文件。')
+      return
+    }
+    if (file.size > 32 * 1024 * 1024) {
+      setSoundFontError('音色文件需小于 32 MB。')
+      return
+    }
+    stopPlayback()
+    setSoundFontError('')
+    setSoundFontLoading(true)
+    setSoundFontMessage('正在载入本机音色…')
+    soundFontNameRef.current = file.name
+    customSoundFontPendingRef.current = true
+    setCustomSoundFontName(file.name)
+    try {
+      const accepted = api.loadSoundFont(new Uint8Array(await file.arrayBuffer()), false)
+      if (!accepted) throw new Error('alphaTab 无法识别该音色文件。')
+    } catch {
+      soundFontNameRef.current = null
+      customSoundFontPendingRef.current = false
+      setCustomSoundFontName(null)
+      setSoundFontLoading(false)
+      setSoundFontError('音色文件无法读取，已恢复内置音色。')
+      setSoundFontMessage('使用内置尤克里里音色')
+      api.resetSoundFonts()
+      api.loadSoundFont(soundFontUrl, false)
+    }
+  }
+
+  function restoreDefaultSoundFont() {
+    const api = apiRef.current
+    if (!api) return
+    stopPlayback()
+    soundFontNameRef.current = null
+    customSoundFontPendingRef.current = false
+    setCustomSoundFontName(null)
+    setSoundFontError('')
+    setSoundFontLoading(true)
+    setSoundFontMessage('正在恢复内置尤克里里音色…')
+    api.resetSoundFonts()
+    api.loadSoundFont(soundFontUrl, false)
   }
 
   function toggleAutoFollow() {
@@ -232,8 +349,8 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
   const label = mode === 'complete' ? `完整曲谱，共 ${manifest.barCount} 小节` : `练习范围，第 ${pageFirst}${pageFirst === pageLast ? '' : ` 到 ${pageLast}`} 小节`
 
   return <section className="practice-score-card score-player-card" aria-label={`${song.title}数字曲谱与试听`}>
-    <div className="practice-score-head"><div><span className="eyebrow">MusicXML · {manifest.attribution}</span><h4>{mode === 'complete' ? '完整课程曲谱' : '今天练这段'}</h4></div><span>{manifest.timeSignature} · {bpm} 教学 BPM{manifest.tempoUnit === 'dotted-quarter' ? '（附点四分音符）' : ''}</span></div>
-    <p className="practice-score-help">TAB 从上到下是 A、E、C、G 弦；数字是品位，0 是空弦。对齐的音符同时弹奏；跟随蓝色光标练习。当前：{label}。</p>
+    <div className="practice-score-head"><div><h4>{mode === 'complete' ? '完整课程曲谱' : '今天练这段'}</h4><p>{manifest.attribution} · {manifest.timeSignature} · {bpm} 教学 BPM{manifest.tempoUnit === 'dotted-quarter' ? '（附点四分音符）' : ''}</p></div><span>{label}</span></div>
+    <p className="practice-score-help">四线 TAB 从上到下是 A、E、C、G 弦；数字代表品位，0 是空弦。同一拍对齐的音一起弹。{playing && followBar ? ` 当前播放第 ${followBar} 小节。` : ''}</p>
     <p className="score-review-note">{manifest.sourceStatus}。谱面来源只用于核对与署名，练习可在本站完成。</p>
     <div className="score-player-toolbar" role="group" aria-label="曲谱显示方式">
       <button className={mode === 'task' ? 'is-active' : ''} type="button" onClick={() => { stopPlayback(); setMode('task') }}><BookOpen size={15} />本步练习</button>
@@ -254,17 +371,47 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
       <button className="button button--quiet" type="button" onClick={togglePlayback} disabled={!ready} aria-label={playing ? '暂停试听' : autoFollow ? '试听当前页并自动跟谱' : '试听当前页'}>
         {playing ? <Pause size={16} /> : <Play size={16} />}{playing ? '暂停试听' : '试听'}
       </button>
-      <label><input type="checkbox" checked={autoFollow} onChange={toggleAutoFollow} />播放时自动跟谱</label>
-      <label><input type="checkbox" checked={loopPage} onChange={toggleLoop} />循环当前页</label>
+      <label className="score-auto-follow"><input type="checkbox" checked={autoFollow} onChange={toggleAutoFollow} />播放时自动翻页</label>
       <label className="score-speed-control">速度
         <select aria-label="试听速度" value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>
-          {[0.5, 0.75, 1, 1.25].map((value) => <option key={value} value={value}>{Math.round(value * 100)}%</option>)}
+          {[0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.25, 1.5].map((value) => <option key={value} value={value}>{Math.round(value * 100)}%</option>)}
         </select>
       </label>
-      {followBar && <span className="score-follow-position" aria-live="polite">正在播放第 {followBar} 小节</span>}
+      {playing && followBar && <span className="score-follow-position" aria-live="polite">正在播放第 {followBar} 小节</span>}
     </div>
-    <div className="score-player-legend"><span>0 为空弦，数字表示品位</span><span>左手 1 食指 · 2 中指 · 3 无名指 · 4 小指</span><span>音频由许可的尤克里里采样音色合成</span></div>
+    <details className="score-player-settings">
+      <summary><AudioLines size={16} />练习设置</summary>
+      <div className="score-settings-grid">
+        <label className="score-setting-volume"><span><Volume2 size={15} />音量 <b>{Math.round(volume * 100)}%</b></span><input type="range" min="0" max="1" step="0.01" value={volume} onChange={(event) => setVolume(Number(event.target.value))} aria-label="试听音量" /></label>
+        <label className="score-setting-check"><input type="checkbox" checked={metronomeEnabled} onChange={(event) => setMetronomeEnabled(event.target.checked)} />节拍器</label>
+        <label className="score-setting-check"><input type="checkbox" checked={countInEnabled} onChange={(event) => setCountInEnabled(event.target.checked)} />开始前预备拍</label>
+        <label className="score-setting-check score-setting-loop"><input type="checkbox" checked={loopRangeEnabled} onChange={toggleLoopRange} />循环小节区间</label>
+        <label className="score-range-select">从小节
+          <select value={Math.min(loopStartIndex, lastVisibleIndex)} onChange={(event) => updateLoopStart(Number(event.target.value))} aria-label="循环起始小节">
+            {visibleBars.map((bar, index) => <option key={`${bar}-${index}`} value={index}>第 {bar} 小节{visibleBars.slice(0, index).includes(bar) ? ` · 第 ${visibleBars.slice(0, index + 1).filter((item) => item === bar).length} 次` : ''}</option>)}
+          </select>
+        </label>
+        <label className="score-range-select">到小节
+          <select value={Math.max(loopStartIndex, Math.min(loopEndIndex, lastVisibleIndex))} onChange={(event) => updateLoopEnd(Number(event.target.value))} aria-label="循环结束小节">
+            {visibleBars.slice(Math.min(loopStartIndex, lastVisibleIndex)).map((bar, offset) => {
+              const index = Math.min(loopStartIndex, lastVisibleIndex) + offset
+              return <option key={`${bar}-${index}`} value={index}>第 {bar} 小节{visibleBars.slice(0, index).includes(bar) ? ` · 第 ${visibleBars.slice(0, index + 1).filter((item) => item === bar).length} 次` : ''}</option>
+            })}
+          </select>
+        </label>
+        <button className="score-range-current" type="button" onClick={setLoopToCurrentPage}>循环本页</button>
+        <div className="score-setting-soundfont">
+          <div><strong>弹奏音色</strong><span role="status">{soundFontLoading ? '正在载入音色…' : soundFontMessage}</span></div>
+          <label className="score-font-import">导入 SF2/SF3
+            <input type="file" accept=".sf2,.sf3,audio/x-soundfont" disabled={!ready || soundFontLoading} onChange={(event) => { void loadCustomSoundFont(event.target.files?.[0]); event.currentTarget.value = '' }} />
+          </label>
+          {customSoundFontName && <button className="score-font-reset" type="button" disabled={soundFontLoading} onClick={restoreDefaultSoundFont}><RotateCcw size={14} />恢复内置音色</button>}
+          {soundFontError && <span className="score-font-error" role="alert">{soundFontError}</span>}
+        </div>
+      </div>
+    </details>
+    {loopRangeEnabled && <p className="score-player-loop-status" role="status">试听循环第 {visibleBars[Math.min(loopStartIndex, lastVisibleIndex)]}–{visibleBars[Math.min(loopEndIndex, lastVisibleIndex)]} 小节。</p>}
+    <div className="score-player-legend"><span>左手 1 食指 · 2 中指 · 3 无名指 · 4 小指</span><span>自选音色只在本机内存中载入</span></div>
     <div className="castle-score-footer"><span>{manifest.barCount} 小节 · High-G · MusicXML</span><a href={manifest.sourceUrl} target="_blank" rel="noreferrer">查看来源与署名 <ArrowRight size={14} /></a></div>
-    {loopPage && <p className="score-player-loop-note" role="status"><Repeat2 size={14} />试听将循环播放当前页。</p>}
   </section>
 }
