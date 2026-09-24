@@ -283,6 +283,8 @@ function CastleScoreViewer({ song, task, bpm, simplified }: { song: Song; task: 
   const [playing, setPlaying] = useState(false)
   const audioRef = useRef<AudioContext | null>(null)
   const stopTimerRef = useRef<number | null>(null)
+  const autoFlipTransitionRef = useRef(false)
+  const [flipEpoch, setFlipEpoch] = useState(0)
   const selectedRows = getCastleScoreRows(task.stage, simplified)
   const rowLabel = (firstBar: number, lastBar: number) => firstBar === lastBar ? `第 ${firstBar} 小节` : `第 ${firstBar}–${lastBar} 小节`
   const activeRange = selectedRows.map(({ firstBar, lastBar }) => rowLabel(firstBar, lastBar)).join('、')
@@ -319,7 +321,10 @@ function CastleScoreViewer({ song, task, bpm, simplified }: { song: Song; task: 
     void context.resume()
     const openMidi: Record<CastleString, number> = { G: 67, C: 60, E: 64, A: 69 }
     const secondsPerTick = 60 / bpm / 4
-    const events = currentMeasures.flatMap((measure, measureIndex) => measure.events.map((event, eventIndex) => ({
+    const playbackMeasures = autoFlip
+      ? pages.slice(currentPage).flatMap((page) => page.measures)
+      : currentMeasures
+    const events = playbackMeasures.flatMap((measure, measureIndex) => measure.events.map((event, eventIndex) => ({
       event,
       eventIndex,
       measureIndex,
@@ -372,7 +377,8 @@ function CastleScoreViewer({ song, task, bpm, simplified }: { song: Song; task: 
       void context.close()
       if (audioRef.current === context) audioRef.current = null
       stopTimerRef.current = null
-    }, currentMeasures.length * 4 * 60000 / bpm + 180)
+    }, playbackMeasures.length * 4 * 60000 / bpm + 180)
+    if (autoFlip) setFlipEpoch((epoch) => epoch + 1)
   }
 
   useEffect(() => {
@@ -386,11 +392,17 @@ function CastleScoreViewer({ song, task, bpm, simplified }: { song: Song; task: 
     if (!autoFlip || pages.length < 2) return
     const timer = window.setTimeout(() => {
       if (currentPage >= pages.length - 1) setAutoFlip(false)
-      else setPageIndex(currentPage + 1)
+      else {
+        autoFlipTransitionRef.current = true
+        setPageIndex(currentPage + 1)
+      }
     }, Math.max(800, currentMeasures.length * 4 * 60000 / bpm))
     return () => window.clearTimeout(timer)
-  }, [autoFlip, bpm, currentMeasures.length, currentPage, pages.length])
-  useEffect(() => { stopPlayback() }, [currentPage])
+  }, [autoFlip, bpm, currentMeasures.length, currentPage, flipEpoch, pages.length])
+  useEffect(() => {
+    if (autoFlipTransitionRef.current) autoFlipTransitionRef.current = false
+    else stopPlayback()
+  }, [currentPage])
   useEffect(() => () => {
     if (stopTimerRef.current !== null) window.clearTimeout(stopTimerRef.current)
     void audioRef.current?.close()
@@ -414,8 +426,8 @@ function CastleScoreViewer({ song, task, bpm, simplified }: { song: Song; task: 
       <span className="score-page-count" aria-live="polite">第 {firstMeasure}{firstMeasure !== lastMeasure ? `–${lastMeasure}` : ''} / 24 小节 · 第 {currentPage + 1} / {pages.length} 页</span>
       <button className="button button--secondary" type="button" onClick={() => setPageIndex(Math.min(pages.length - 1, currentPage + 1))} disabled={currentPage >= pages.length - 1}>下一页<ArrowRight size={15} /></button>
     </div>
-    {pages.length > 1 && <button className="button button--quiet score-autoflip" type="button" onClick={() => setAutoFlip((value) => !value)}>{autoFlip ? <Pause size={15} /> : <Play size={15} />}{autoFlip ? '暂停自动翻页' : '按节拍自动翻页'}</button>}
-    <button className="button button--quiet score-preview" type="button" onClick={previewPage}>{playing ? <Pause size={15} /> : <Play size={15} />}{playing ? '停止试听' : '试听当前页'}</button>
+    {pages.length > 1 && <button className="button button--quiet score-autoflip" type="button" onClick={() => { if (playing) stopPlayback(); setAutoFlip((value) => !value) }}>{autoFlip ? <Pause size={15} /> : <Play size={15} />}{autoFlip ? '暂停自动翻页' : '按节拍自动翻页'}</button>}
+    <button className="button button--quiet score-preview" type="button" onClick={previewPage}>{playing ? <Pause size={15} /> : <Play size={15} />}{playing ? '停止试听' : autoFlip ? '试听本页及后续页' : '试听当前页'}</button>
     {mode === 'symbols' && <div className="castle-score-symbols" aria-label="谱面记号说明">
       <span><b>0</b> 空弦；其他数字为品位</span>
       <span><i className="castle-symbol-arpeggio" aria-hidden="true" />竖向波浪线：琶音</span>
