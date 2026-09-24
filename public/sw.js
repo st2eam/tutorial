@@ -1,6 +1,10 @@
-const CACHE_NAME = 'shiyi-v4'
+const CACHE_NAME = 'shiyi-v5'
 const APP_SHELL = [
   './', './index.html', './manifest.webmanifest', './icons/icon.svg',
+  './scores/always-with-me.musicxml', './scores/anheqiao.musicxml', './scores/canon-in-c.musicxml',
+  './scores/castle-in-the-sky.musicxml', './scores/chengdu.musicxml', './scores/nanshannan.musicxml', './scores/summer.musicxml',
+  './soundfonts/ukulele.sf2', './soundfonts/LICENSE-ukulele.txt', './soundfonts/README-ukulele.txt',
+  './font/Bravura.woff2', './font/Bravura.svg', './font/Bravura-OFL.txt', './font/LICENSE',
 ]
 
 self.addEventListener('install', (event) => {
@@ -11,7 +15,13 @@ self.addEventListener('install', (event) => {
     const html = await response.text()
     const builtAssets = [...html.matchAll(/(?:src|href)="([^\"]+\.(?:js|css)(?:\?[^\"]*)?)"/g)]
       .map((match) => new URL(match[1], base).href)
-    const shell = [...APP_SHELL.map((path) => new URL(path, base).href), ...builtAssets]
+    const manifestUrl = new URL('vite-manifest.json', base)
+    const manifestResponse = await fetch(manifestUrl)
+    const manifest = await manifestResponse.json()
+    const manifestAssets = Object.values(manifest).flatMap((entry) => [entry.file, ...(entry.css ?? []), ...(entry.assets ?? [])])
+      .filter((path) => typeof path === 'string')
+      .map((path) => new URL(path, base).href)
+    const shell = [...APP_SHELL.map((path) => new URL(path, base).href), ...builtAssets, manifestUrl.href, ...manifestAssets]
     const cache = await caches.open(CACHE_NAME)
     await cache.addAll([...new Set(shell)])
   })())
@@ -35,7 +45,7 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) => {
       if (cached) return cached
       return fetch(request).then((response) => {
-        if (response.ok && new URL(request.url).pathname.includes('/assets/')) {
+        if (response.ok) {
           const copy = response.clone()
           void caches.open(CACHE_NAME).then((cache) => cache.put(request, copy))
         }

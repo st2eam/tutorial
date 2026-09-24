@@ -54,31 +54,6 @@ export const STAGES = ['认识歌曲', '单个和弦', '和弦转换', '节奏�
 export const FINGERSTYLE_STAGES = ['认识四线谱', '右手拨弦', '单音旋律', '加入和声音', '前段慢练', '后段慢练', '连接全曲', '完整独奏']
 export type SongKind = Song['kind']
 
-export type CastleScoreRow = { row: number; firstBar: number; lastBar: number }
-export const CASTLE_SCORE_ROWS: CastleScoreRow[] = [1, 4, 7, 10, 13, 16, 19, 22].map((firstBar, index) => ({
-  row: index + 1,
-  firstBar,
-  lastBar: firstBar + 2,
-}))
-
-export function getCastleScoreRows(stage: number, simplified = false): CastleScoreRow[] {
-  const rows = CASTLE_SCORE_ROWS
-  if (simplified) {
-    if (stage === 1 || stage === 2 || stage === 3) return [{ ...rows[0], lastBar: rows[0].firstBar }]
-    if (stage === 4) return [{ ...rows[1], lastBar: rows[1].firstBar }]
-    if (stage === 5) return [{ ...rows[2], lastBar: rows[2].firstBar }]
-    if (stage === 6) return rows.slice(3, 4)
-    if (stage === 7) return rows.slice(0, 3)
-  }
-  if (stage === 1) return rows
-  if (stage === 2) return rows.slice(0, 1)
-  if (stage === 3) return [{ ...rows[0], lastBar: rows[0].firstBar }]
-  if (stage === 4) return rows.slice(1, 2)
-  if (stage === 5) return rows.slice(2, 3)
-  if (stage === 6) return rows.slice(3, 6)
-  return rows
-}
-
 type LessonDraft = Omit<LessonTask, 'id' | 'songId' | 'stage' | 'stageName' | 'tempoSteps' | 'scoreGuide'>
 
 const songConfigs: Omit<Song, 'tasks'>[] = [
