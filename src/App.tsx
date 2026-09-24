@@ -5,9 +5,9 @@ import {
   Pause, Play, Plus, RotateCcw, Settings, Shapes, Sparkles, Sprout, Upload, Volume2, X,
 } from 'lucide-react'
 import { CHORDS, findSong, findTask, getCastleScoreRows, SONGS, STAGES, FINGERSTYLE_STAGES, type ChordName, type Song, type SongKind } from './data/course'
-import { CASTLE_SCORE, CASTLE_SCORE_MEASURE_COUNT, CASTLE_SCORE_SOURCE, CASTLE_SCORE_SYSTEMS, type CastleMeasure, type CastleString } from './data/castle-score'
+import { CASTLE_SCORE, CASTLE_SCORE_MEASURE_COUNT, CASTLE_SCORE_SOURCE, CASTLE_SCORE_SYSTEMS, type CastleMeasure, type CastleNote, type CastleString } from './data/castle-score'
 import { CATEGORIES, findGuidedCourse, findSkill, GUIDED_COURSES, SKILLS, type GuidedCourse } from './data/catalog'
-import { getSimplifiedMeasureIds, getTaskMeasureIds, SCORE_SHEETS, type ScoreMeasure, type ScoreSheet, type UkuleleString } from './data/score-sheets'
+import { getPlaybackNotes, getSimplifiedMeasureIds, getTaskMeasureIds, SCORE_SHEETS, type ScoreMeasure, type ScoreSheet, type UkuleleString } from './data/score-sheets'
 import {
   currentGuidedLesson, currentTask, emptyProgress, exportBackup, getGuidedProgress, getSongProgress,
   isGuidedCourseCompleted, isSongCompleted, loadProgress, markSongRoute, recordFeedback,
@@ -110,14 +110,23 @@ function ScoreMeasureGraphic({ measure, sheet, sequenceNumber, onChordClick }: {
         return <g key={`beat-${index}`}><line x1={x} x2={x} y1="31" y2="164" className={sheet.timeSignature === '6/8' && index === 3 ? 'score-beat-line is-accent' : 'score-beat-line'} /><text x={x} y="188" textAnchor="middle" className="score-beat-label">{index + 1}</text></g>
       })}
       <line x1="594" x2="594" y1="31" y2="164" className="score-barline" />
+      {measure.rests.map((rest, index) => {
+        const restGlyph = sheet.timeSignature === '6/8'
+          ? rest.duration >= 2 ? '𝄾' : '𝄿'
+          : rest.duration >= 4 ? '𝄽' : rest.duration >= 2 ? '𝄾' : '𝄿'
+        return <text key={`rest-${rest.voice}-${rest.tick}-${index}`} x={xForTick(rest.tick + rest.duration / 2)} y={rest.voice === 'melody' ? 106 : 178} textAnchor="middle" className="score-rest" aria-label={`${rest.duration} 个细分时值的休止`}>{restGlyph}</text>
+      })}
       {measure.notes.map((note, index) => {
         const x = xForTick(note.tick)
         const y = 42 + rowForString(note.string) * 29
         const durationWidth = Math.max(4, xForTick(Math.min(totalTicks, note.tick + note.duration)) - x - 14)
+        const tiedNote = note.tieToNext ? measure.notes.find((next) => next.voice === note.voice && next.string === note.string && next.fret === note.fret && next.tick === note.tick + note.duration) : undefined
+        const tiedX = tiedNote ? xForTick(tiedNote.tick) : 0
         return <g key={`${note.string}-${note.fret}-${note.tick}-${index}`} className={`score-note score-note--${note.voice}`}>
-          {note.duration > 2 && <line x1={x + 13} x2={x + 13 + durationWidth} y1={y + 10} y2={y + 10} className="score-note-sustain" />}
+          {note.duration > beatTicks && <line x1={x + 13} x2={x + 13 + durationWidth} y1={y + 10} y2={y + 10} className="score-note-sustain" />}
           <rect x={x - 13} y={y - 13} width="26" height="25" rx="6" className="score-note-box" />
           <text x={x} y={y + 5} textAnchor="middle" className="score-note-number">{note.fret}</text>
+          {tiedNote && <path d={`M ${x + 2} ${y + 14} Q ${(x + tiedX) / 2} ${y + 28} ${tiedX - 2} ${y + 14}`} className="score-note-tie" />}
         </g>
       })}
       {measure.strums.map((strum, index) => {
@@ -182,14 +191,13 @@ function PracticeScoreCard({ song, task, bpm, simplified, onChordClick }: { song
     }
     currentIds.forEach((id, measureIndex) => {
       const measure = sheet.measures[id]
-      const offset = measureIndex * ticksPerBar
-      measure.notes.forEach((note) => tone(note.string, note.fret, offset + note.tick, note.duration))
       const chord = CHORDS[measure.chord].frets
       measure.strums.forEach((strum) => {
         const order = strum.direction === 'down' ? [0, 1, 2, 3] : [3, 2, 1, 0]
-        order.forEach((stringIndex, index) => tone(SCORE_STRING_ORDER[3 - stringIndex], chord[stringIndex], offset + strum.tick, 3, index * 0.018))
+        order.forEach((stringIndex, index) => tone(SCORE_STRING_ORDER[3 - stringIndex], chord[stringIndex], measureIndex * ticksPerBar + strum.tick, 3, index * 0.018))
       })
     })
+    getPlaybackNotes(sheet, currentIds).forEach((note) => tone(note.string, note.fret, note.absoluteTick, note.duration))
     setPlaying(true)
     const totalBars = currentIds.length
     const quarterNotes = sheet.timeSignature === '6/8' ? 3 : Number(sheet.timeSignature.split('/')[0]) * 4 / Number(sheet.timeSignature.split('/')[1])
@@ -201,11 +209,12 @@ function PracticeScoreCard({ song, task, bpm, simplified, onChordClick }: { song
   return <section className="practice-score-card" aria-label={`${song.title}站内教学谱`}>
     <div className="practice-score-head"><div><span className="eyebrow">谱卡 · 拾艺教学编配</span><h4>今天练这段</h4></div><span>{sheet.timeSignature} · {bpm} 教学 BPM{sheet.tempoUnit === 'dotted-quarter' ? '（附点四分音符）' : ''}</span></div>
     <p className="practice-score-help">TAB 从上到下是 A、E、C、G 弦；数字是品位，0 是空弦。竖线数字是拍数；同一拍的数字一起拨。右手拇指拨 G、C 弦，食指拨 E 弦，中指拨 A 弦。</p>
+    <p className="score-review-note">旋律音型是拾艺教学编配，尚未逐音核实为参考谱旋律；本谱中的休止和延音用于教学节奏练习。</p>
     <div className="practice-score-pages">{currentIds.map((id, index) => <ScoreMeasureGraphic key={`${id}-${currentPage}-${index}`} measure={sheet.measures[id]} sheet={sheet} sequenceNumber={currentPage * pageSize + index + 1} onChordClick={onChordClick} />)}</div>
     <div className="practice-score-controls">
-      <button className="button button--secondary" type="button" onClick={() => setPageIndex(Math.max(0, currentPage - 1))} disabled={currentPage === 0}><ArrowLeft size={15} />上一段</button>
+      <button className="button button--secondary" type="button" onClick={() => setPageIndex(Math.max(0, currentPage - 1))} disabled={currentPage === 0}><ArrowLeft size={15} />上一页</button>
       <span className="score-page-count" aria-live="polite">第 {currentPage + 1} / {pages.length} 段</span>
-      <button className="button button--secondary" type="button" onClick={() => setPageIndex(Math.min(pages.length - 1, currentPage + 1))} disabled={currentPage >= pages.length - 1}>下一段<ArrowRight size={15} /></button>
+      <button className="button button--secondary" type="button" onClick={() => setPageIndex(Math.min(pages.length - 1, currentPage + 1))} disabled={currentPage >= pages.length - 1}>下一页<ArrowRight size={15} /></button>
     </div>
     {pages.length > 1 && <button className="button button--quiet score-autoflip" type="button" onClick={() => setAutoFlip((value) => !value)}>{autoFlip ? <Pause size={15} /> : <Play size={15} />}{autoFlip ? '暂停自动翻页' : '按节拍自动翻页'}</button>}
     <button className="button button--quiet score-preview" type="button" onClick={playCurrentPage} disabled={playing}>{playing ? <Pause size={15} /> : <Play size={15} />}{playing ? '正在试听这段' : '试听当前谱段'}</button>
@@ -217,7 +226,7 @@ type CastleScoreMode = 'practice' | 'complete' | 'symbols'
 
 const CASTLE_STRING_Y: Record<CastleString, number> = { A: 42, E: 66, C: 90, G: 114 }
 
-function CastleScoreSystem({ measures, row, zoom }: { measures: CastleMeasure[]; row: number; zoom: number }) {
+function CastleScoreSystem({ measures, row }: { measures: CastleMeasure[]; row: number }) {
   const measureWidth = measures.length === 1 ? 560 : 324
   const left = 38
   const width = left + measures.length * measureWidth + 8
@@ -232,7 +241,7 @@ function CastleScoreSystem({ measures, row, zoom }: { measures: CastleMeasure[];
   return <figure className="castle-score-row">
     <figcaption><span>第 {row} 行</span><strong>小节 {measures[0]?.number}–{lastBar}</strong></figcaption>
     <div className="castle-score-scroll">
-      <svg className="castle-score-svg" viewBox={`0 0 ${width} 176`} role="img" aria-label={`TAB 第 ${measures[0]?.number} 至 ${lastBar} 小节`} style={{ width: `${zoom * 100}%`, minWidth: `${width * zoom}px` }}>
+      <svg className="castle-score-svg" viewBox={`0 0 ${width} 176`} role="img" aria-label={`TAB 第 ${measures[0]?.number} 至 ${lastBar} 小节`}>
         {[42, 66, 90, 114].map((y) => <line key={y} className="castle-score-staff" x1={left} y1={y} x2={width - 8} y2={y} />)}
         {measures.map((bar, index) => <g key={bar.number}>
           <line className="castle-score-barline" x1={measureX(index)} y1="42" x2={measureX(index)} y2="114" />
@@ -266,19 +275,129 @@ function CastleScoreSystem({ measures, row, zoom }: { measures: CastleMeasure[];
   </figure>
 }
 
-function CastleScoreViewer({ song, task, simplified }: { song: Song; task: NonNullable<ReturnType<typeof findTask>>; simplified: boolean }) {
+function CastleScoreViewer({ song, task, bpm, simplified }: { song: Song; task: NonNullable<ReturnType<typeof findTask>>; bpm: number; simplified: boolean }) {
   const [mode, setMode] = useState<CastleScoreMode>('practice')
-  const [zoom, setZoom] = useState(1)
+  const [pageSize, setPageSize] = useState(() => window.matchMedia('(max-width: 767px)').matches ? 1 : 2)
+  const [pageIndex, setPageIndex] = useState(0)
+  const [autoFlip, setAutoFlip] = useState(false)
+  const [playing, setPlaying] = useState(false)
+  const audioRef = useRef<AudioContext | null>(null)
+  const stopTimerRef = useRef<number | null>(null)
   const selectedRows = getCastleScoreRows(task.stage, simplified)
   const rowLabel = (firstBar: number, lastBar: number) => firstBar === lastBar ? `第 ${firstBar} 小节` : `第 ${firstBar}–${lastBar} 小节`
   const activeRange = selectedRows.map(({ firstBar, lastBar }) => rowLabel(firstBar, lastBar)).join('、')
-  const displayRange = mode === 'complete' ? '第 1–24 小节' : activeRange
-  const rowsToDraw = mode === 'complete'
+  const scoreRows = mode === 'complete'
     ? CASTLE_SCORE_SYSTEMS.map((row) => ({ ...row, measures: CASTLE_SCORE.filter((bar) => bar.number >= row.firstBar && bar.number <= row.lastBar) }))
     : selectedRows.map((row) => ({ ...row, measures: CASTLE_SCORE.filter((bar) => bar.number >= row.firstBar && bar.number <= row.lastBar) }))
+  const pages = useMemo(() => scoreRows.flatMap(({ row, measures }) => {
+    const rowPages: { row: number; measures: CastleMeasure[] }[] = []
+    for (let index = 0; index < measures.length; index += pageSize) rowPages.push({ row, measures: measures.slice(index, index + pageSize) })
+    return rowPages
+  }), [scoreRows.map(({ row, measures }) => `${row}:${measures.map((measure) => measure.number).join(',')}`).join('|'), pageSize])
+  const currentPage = Math.min(pageIndex, Math.max(0, pages.length - 1))
+  const currentMeasures = pages[currentPage]?.measures ?? []
+  const firstMeasure = currentMeasures[0]?.number ?? 1
+  const lastMeasure = currentMeasures[currentMeasures.length - 1]?.number ?? firstMeasure
+  const displayRange = mode === 'complete' ? '第 1–24 小节' : activeRange
+
+  function stopPlayback() {
+    if (stopTimerRef.current !== null) window.clearTimeout(stopTimerRef.current)
+    stopTimerRef.current = null
+    void audioRef.current?.close()
+    audioRef.current = null
+    setPlaying(false)
+  }
+
+  function previewPage() {
+    if (playing) {
+      stopPlayback()
+      return
+    }
+    if (!('AudioContext' in window) || currentMeasures.length === 0) return
+    const context = new AudioContext()
+    audioRef.current = context
+    void context.resume()
+    const openMidi: Record<CastleString, number> = { G: 67, C: 60, E: 64, A: 69 }
+    const secondsPerTick = 60 / bpm / 4
+    const events = currentMeasures.flatMap((measure, measureIndex) => measure.events.map((event, eventIndex) => ({
+      event,
+      eventIndex,
+      measureIndex,
+      tick: measureIndex * 16 + event.tick,
+    })))
+    const tiedNotes = new Set<string>()
+    const makeKey = (measureIndex: number, eventIndex: number, string: CastleString) => `${measureIndex}:${eventIndex}:${string}`
+    const scheduleTone = (note: CastleNote, event: CastleScoreEventRef, noteIndex: number, durationTicks: number) => {
+      const stagger = event.event.arpeggio ? noteIndex * 0.028 : 0
+      const start = context.currentTime + event.tick * secondsPerTick + stagger
+      const oscillator = context.createOscillator()
+      const gain = context.createGain()
+      oscillator.type = 'triangle'
+      oscillator.frequency.value = 440 * 2 ** ((openMidi[note.string] + note.fret - 69) / 12)
+      gain.gain.setValueAtTime(0.0001, start)
+      gain.gain.exponentialRampToValueAtTime(0.12, start + 0.012)
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + Math.max(0.08, durationTicks * secondsPerTick * 0.9))
+      oscillator.connect(gain); gain.connect(context.destination)
+      oscillator.start(start); oscillator.stop(start + Math.max(0.1, durationTicks * secondsPerTick))
+    }
+    events.forEach((entry, entryIndex) => {
+      entry.event.notes.forEach((note, noteIndex) => {
+        if (tiedNotes.has(makeKey(entry.measureIndex, entry.eventIndex, note.string))) return
+        let durationTicks = entry.event.duration
+        let tieFrom = entry
+        let tieEntryIndex = entryIndex
+        let tied = false
+        while (tieFrom.event.slurAfter) {
+          const nextIndex = events.findIndex((candidate, candidateIndex) => candidateIndex > tieEntryIndex
+            && candidate.event.notes.some((candidateNote) => candidateNote.string === tieFrom.event.slurAfter
+              && candidateNote.string === note.string && candidateNote.fret === note.fret))
+          if (nextIndex < 0) break
+          const next = events[nextIndex]
+          const target = next.event.notes.find((candidateNote) => candidateNote.string === note.string && candidateNote.fret === note.fret)
+          if (!target) break
+          tiedNotes.add(makeKey(next.measureIndex, next.eventIndex, note.string))
+          durationTicks = next.tick + next.event.duration - entry.tick
+          tieFrom = next
+          tieEntryIndex = nextIndex
+          tied = true
+          if (!next.event.slurAfter) break
+        }
+        scheduleTone(note, entry, noteIndex, durationTicks)
+        if (tied) tiedNotes.add(makeKey(entry.measureIndex, entry.eventIndex, note.string))
+      })
+    })
+    setPlaying(true)
+    stopTimerRef.current = window.setTimeout(() => {
+      setPlaying(false)
+      void context.close()
+      if (audioRef.current === context) audioRef.current = null
+      stopTimerRef.current = null
+    }, currentMeasures.length * 4 * 60000 / bpm + 180)
+  }
+
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 767px)')
+    const update = () => setPageSize(query.matches ? 1 : 2)
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+  useEffect(() => { setPageIndex(0); setAutoFlip(false); stopPlayback() }, [task.id, simplified, mode, pageSize])
+  useEffect(() => {
+    if (!autoFlip || pages.length < 2) return
+    const timer = window.setTimeout(() => {
+      if (currentPage >= pages.length - 1) setAutoFlip(false)
+      else setPageIndex(currentPage + 1)
+    }, Math.max(800, currentMeasures.length * 4 * 60000 / bpm))
+    return () => window.clearTimeout(timer)
+  }, [autoFlip, bpm, currentMeasures.length, currentPage, pages.length])
+  useEffect(() => { stopPlayback() }, [currentPage])
+  useEffect(() => () => {
+    if (stopTimerRef.current !== null) window.clearTimeout(stopTimerRef.current)
+    void audioRef.current?.close()
+  }, [])
 
   return <section className="practice-score-card castle-score-card" aria-label={`${song.title}自绘 TAB 谱`}>
-    <div className="practice-score-head"><div><span className="eyebrow">网页绘制 TAB · {CASTLE_SCORE_SOURCE.attribution}</span><h4>{mode === 'complete' ? '完整 24 小节' : mode === 'symbols' ? '节奏与演奏记号' : '本步练习位置'}</h4></div><span>4/4 · 约 92 BPM</span></div>
+    <div className="practice-score-head"><div><span className="eyebrow">网页绘制 TAB · {CASTLE_SCORE_SOURCE.attribution}</span><h4>{mode === 'complete' ? '完整 24 小节' : mode === 'symbols' ? '节奏与演奏记号' : '本步练习位置'}</h4></div><span>4/4 · {bpm} 教学 BPM（参考约 92）</span></div>
     <p className="practice-score-help">谱面由网页中的文字、线条和记号绘制。弦从上到下为 A、E、C、G；数字表示品位，0 表示空弦。当前显示：{displayRange}。</p>
     <div className="castle-score-toolbar">
       <div className="castle-score-tabs" role="tablist" aria-label="琴谱查看方式">
@@ -286,15 +405,17 @@ function CastleScoreViewer({ song, task, simplified }: { song: Song; task: NonNu
         <button type="button" role="tab" aria-selected={mode === 'complete'} className={mode === 'complete' ? 'is-active' : ''} onClick={() => setMode('complete')}>完整谱</button>
         <button type="button" role="tab" aria-selected={mode === 'symbols'} className={mode === 'symbols' ? 'is-active' : ''} onClick={() => setMode('symbols')}>记号说明</button>
       </div>
-      <div className="castle-score-zoom" aria-label="调整琴谱显示大小">
-        <button className="icon-button" type="button" aria-label="缩小琴谱" onClick={() => setZoom((value) => Math.max(0.75, Number((value - 0.25).toFixed(2))))} disabled={zoom <= 0.75}>−</button>
-        <span>{Math.round(zoom * 100)}%</span>
-        <button className="icon-button" type="button" aria-label="放大琴谱" onClick={() => setZoom((value) => Math.min(2.5, Number((value + 0.25).toFixed(2))))} disabled={zoom >= 2.5}>＋</button>
-      </div>
     </div>
     <div className="castle-score-rows">
-      {rowsToDraw.map(({ row, measures }) => <CastleScoreSystem key={row} row={row} measures={measures} zoom={zoom} />)}
+      {currentMeasures.length > 0 && <CastleScoreSystem key={`${pages[currentPage]?.row}-${firstMeasure}`} row={pages[currentPage]?.row ?? 1} measures={currentMeasures} />}
     </div>
+    <div className="practice-score-controls">
+      <button className="button button--secondary" type="button" onClick={() => setPageIndex(Math.max(0, currentPage - 1))} disabled={currentPage === 0}><ArrowLeft size={15} />上一页</button>
+      <span className="score-page-count" aria-live="polite">第 {firstMeasure}{firstMeasure !== lastMeasure ? `–${lastMeasure}` : ''} / 24 小节 · 第 {currentPage + 1} / {pages.length} 页</span>
+      <button className="button button--secondary" type="button" onClick={() => setPageIndex(Math.min(pages.length - 1, currentPage + 1))} disabled={currentPage >= pages.length - 1}>下一页<ArrowRight size={15} /></button>
+    </div>
+    {pages.length > 1 && <button className="button button--quiet score-autoflip" type="button" onClick={() => setAutoFlip((value) => !value)}>{autoFlip ? <Pause size={15} /> : <Play size={15} />}{autoFlip ? '暂停自动翻页' : '按节拍自动翻页'}</button>}
+    <button className="button button--quiet score-preview" type="button" onClick={previewPage}>{playing ? <Pause size={15} /> : <Play size={15} />}{playing ? '停止试听' : '试听当前页'}</button>
     {mode === 'symbols' && <div className="castle-score-symbols" aria-label="谱面记号说明">
       <span><b>0</b> 空弦；其他数字为品位</span>
       <span><i className="castle-symbol-arpeggio" aria-hidden="true" />竖向波浪线：琶音</span>
@@ -305,6 +426,8 @@ function CastleScoreViewer({ song, task, simplified }: { song: Song; task: NonNu
     <div className="castle-score-footer"><span>{CASTLE_SCORE_MEASURE_COUNT} 小节 · High-G · 全部记号为网页绘制</span><a href={song.scoreUrl} target="_blank" rel="noreferrer">查看来源与署名 <ExternalLink size={14} /></a></div>
   </section>
 }
+
+type CastleScoreEventRef = { event: CastleMeasure['events'][number]; eventIndex: number; measureIndex: number; tick: number }
 
 function Metronome({ initialBpm, timeSignature, tempoUnit = 'quarter' }: { initialBpm: number; timeSignature: Song['timeSignature']; tempoUnit?: ScoreSheet['tempoUnit'] }) {
   const [bpm, setBpm] = useState(initialBpm)
@@ -728,7 +851,7 @@ function PracticePage({ song, task, item, onBack, onFinish }: { song: Song; task
       <div className="lesson-label"><span className="lesson-label-dot lesson-label-dot--clay" />跟着做</div>
       <ol className="practice-steps">{visibleSteps.map((step, index) => <li key={step}><span>{String(index + 1).padStart(2, '0')}</span><p>{step}</p></li>)}</ol>
       {song.id === 'castle-in-the-sky'
-        ? <CastleScoreViewer song={song} task={task} simplified={simplified} />
+        ? <CastleScoreViewer song={song} task={task} bpm={bpm} simplified={simplified} />
         : <PracticeScoreCard song={song} task={task} bpm={bpm} simplified={simplified} onChordClick={setOpenChord} />}
       {visibleChords.length > 0 && <div className="lesson-resource"><div className="resource-head"><div><span className="eyebrow">今天会用到</span><h4>和弦指法</h4></div><span className="resource-meta">正对指板，从左到右：G · C · E · A</span></div><div className="chord-grid">{visibleChords.map((chord) => <ChordDiagram name={chord} onClick={() => setOpenChord(chord)} key={chord} />)}</div><p className="chord-legend">圆点数字表示按弦手指：1 食指 · 2 中指 · 3 无名指 · 4 小指；○ 表示空弦。</p></div>}
       <div className="lesson-success"><CheckCircle2 size={18} /><div><strong>完成标准</strong><p>{successText}</p></div></div>

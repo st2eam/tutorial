@@ -91,7 +91,14 @@ export function validateCastleScore(): string[] {
   for (const bar of CASTLE_SCORE) {
     const total = bar.events.reduce((sum, event) => sum + event.duration, 0)
     if (total !== 16) errors.push(`Measure ${bar.number} has ${total} sixteenth ticks, expected 16.`)
-    if (bar.events.some((event) => event.duration <= 0 || event.tick < 0)) errors.push(`Measure ${bar.number} has an invalid event.`)
+    let expectedTick = 0
+    for (const event of bar.events) {
+      if (event.duration <= 0 || event.tick !== expectedTick) errors.push(`Measure ${bar.number} has an invalid or misplaced event.`)
+      if (event.tick < 0 || event.tick + event.duration > 16) errors.push(`Measure ${bar.number} has an event outside its 4/4 boundary.`)
+      if (event.notes.some((note) => note.fret < 0 || note.fret > 12 || !['A', 'E', 'C', 'G'].includes(note.string))) errors.push(`Measure ${bar.number} has an invalid TAB note.`)
+      if (event.rest && event.notes.length > 0) errors.push(`Measure ${bar.number} rest event also contains notes.`)
+      expectedTick += event.duration
+    }
   }
   return errors
 }

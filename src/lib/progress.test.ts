@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CASTLE_SCORE_ROWS, CHORDS, getCastleScoreRows, SONGS, STAGES, FINGERSTYLE_STAGES } from '../data/course'
 import { CATEGORIES, COURSES, GUIDED_COURSES, SONG_COURSES, SKILLS } from '../data/catalog'
-import { getSimplifiedMeasureIds, getTaskMeasureIds, SCORE_SHEETS, validateScoreSheet } from '../data/score-sheets'
+import { getPlaybackNotes, getSimplifiedMeasureIds, getTaskMeasureIds, SCORE_SHEETS, validateScoreSheet } from '../data/score-sheets'
 import { CASTLE_SCORE, CASTLE_SCORE_MEASURE_COUNT, CASTLE_SCORE_SOURCE, CASTLE_SCORE_SYSTEMS, validateCastleScore } from '../data/castle-score'
 import { currentGuidedLesson, currentTask, emptyProgress, getGuidedProgress, getSongProgress, isGuidedCourseCompleted, isSongCompleted, markSongRoute, recordFeedback, recordGuidedFeedback, startGuidedCourse, startSong, validateProgressBackup } from './progress'
 
@@ -168,6 +168,32 @@ describe('歌曲专属课程内容', () => {
       }
       expect(getTaskMeasureIds(sheet, 8)).toEqual(sheet.playOrder)
     }
+  })
+
+  it('六份教学谱以明确拍点记录休止与时值，试听合并延音且不在休止处起音', () => {
+    for (const sheet of Object.values(SCORE_SHEETS)) {
+      const introId = sheet.parts.find((part) => part.id === 'intro')!.measures[0]
+      const intro = sheet.measures[introId]
+      const barTicks = sheet.timeSignature === '6/8' ? 12 : 16
+      expect(intro.rests.length).toBeGreaterThan(0)
+      expect(intro.notes.some((note) => note.voice === 'melody' && note.duration > (sheet.timeSignature === '6/8' ? 2 : 4))).toBe(true)
+      expect([...intro.notes, ...intro.rests].every((event) => Number.isInteger(event.tick) && Number.isInteger(event.duration) && event.tick >= 0 && event.tick + event.duration <= barTicks)).toBe(true)
+    }
+
+    const tiedSheet = structuredClone(SCORE_SHEETS['always-with-me'])
+    const introId = tiedSheet.parts.find((part) => part.id === 'intro')!.measures[0]
+    const intro = tiedSheet.measures[introId]
+    intro.notes[0].tieToNext = true
+    intro.notes[1].string = intro.notes[0].string
+    intro.notes[1].fret = intro.notes[0].fret
+    const playback = getPlaybackNotes(tiedSheet, [introId])
+    expect(playback.find((note) => note.voice === 'melody')).toMatchObject({ tick: 0, duration: 6 })
+    expect(playback.some((note) => note.voice === 'melody' && note.tick === 4)).toBe(false)
+    expect(playback.some((note) => note.voice === 'melody' && note.tick === intro.rests[0].tick)).toBe(false)
+    expect(validateScoreSheet(tiedSheet)).toEqual([])
+
+    intro.rests[0].duration = 20
+    expect(validateScoreSheet(tiedSheet).some((issue) => issue.includes('休止时值超出小节'))).toBe(true)
   })
 })
 
