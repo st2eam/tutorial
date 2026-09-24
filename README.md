@@ -28,3 +28,7 @@ npm run preview
 每个通用步骤课程是 `src/data/guided-courses/` 下的一个 TypeScript 文件；目录会自动发现课程。该文件导出课程分类、技能、标题、简介和步骤，字段与示例结构见[课程编写规范](docs/course-authoring.md)。
 
 尤克里里歌曲课程仍维护在 `src/data/course.ts`；播放器读取 `public/scores/<song-id>.musicxml`，八阶段任务和段落映射维护在 `src/data/score-manifest.ts`。新增或修改歌曲课程前，请先阅读[课程编写规范](docs/course-authoring.md)，并查看[歌曲来源核对记录](docs/song-source-audit.md)。
+
+歌曲练习页可查看当前任务谱段或切换到完整课程曲谱，并使用试听、变速、循环小节和自动跟谱。当前只有《天空之城》详情页另有按页浏览的 24 小节完整 TAB；新增歌曲时请按编写规范补齐详情页曲谱入口。
+
+开发或排查乐谱播放器时，可从 [alphaTab LLM Wiki](docs/alphatab-llm-wiki/README.md) 查阅上游文档索引、MusicXML / TAB 指南和项目适配示例。
