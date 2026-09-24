@@ -97,6 +97,18 @@ describe('歌曲专属课程内容', () => {
     expect(COURSE_SCORE_MANIFEST['castle-in-the-sky'].barCount).toBe(24)
   })
 
+  it('天空之城详情完整谱覆盖 24 小节，最后一步的简化范围和文字一致', () => {
+    const sky = SONGS.find((course) => course.id === 'castle-in-the-sky')!
+    expect(getTaskScoreBars(sky.id, 8, false)).toEqual(Array.from({ length: 24 }, (_, index) => index + 1))
+    expect(getTaskScoreBars(sky.id, 8, true)).toEqual([1, 2])
+    expect(sky.courseNote).toContain('完整曲目 TAB 已放在本详情页')
+    expect(sky.tasks[0].scoreCue).toContain('每页 1–2 小节')
+    expect(sky.tasks[0].simplifiedSteps.join(' ')).toContain('第 1 小节')
+    expect(sky.tasks.slice(1).flatMap((task) => [task.scoreCue, ...task.steps, ...task.simplifiedSteps]).join(' ')).not.toMatch(/第一行|第二行|第三行|每行先|换行/)
+    expect(sky.tasks[7].simplifiedSteps.join(' ')).toContain('第 1–2 小节')
+    expect(sky.tasks[7].simplifiedSuccess).toContain('第 1–2 小节')
+  })
+
   it('休止、延音和 6/8 拍时长都保存在可解析的 MusicXML 中', () => {
     for (const course of SONGS) {
       const manifest = COURSE_SCORE_MANIFEST[course.id as keyof typeof COURSE_SCORE_MANIFEST]

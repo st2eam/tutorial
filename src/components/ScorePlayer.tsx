@@ -21,8 +21,11 @@ function tickSequence(api: AlphaTabApiType, bars: number[]) {
   })
 }
 
-export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task: LessonTask; bpm: number; simplified: boolean }) {
+export function ScorePlayer({ song, task, bpm, simplified, standalone = false }: { song: Song; task?: LessonTask; bpm?: number; simplified?: boolean; standalone?: boolean }) {
   const manifest = COURSE_SCORE_MANIFEST[song.id as keyof typeof COURSE_SCORE_MANIFEST]
+  const stage = task?.stage ?? 8
+  const isSimplified = simplified ?? false
+  const playbackBpm = bpm ?? manifest.bpm
   const mountRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const apiRef = useRef<AlphaTabApiType | null>(null)
@@ -30,7 +33,7 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
   const [error, setError] = useState('')
   const [pageSize, setPageSize] = useState(() => window.matchMedia(MOBILE_QUERY).matches ? 1 : 2)
   const [pageIndex, setPageIndex] = useState(0)
-  const [mode, setMode] = useState<ScoreMode>('task')
+  const [mode, setMode] = useState<ScoreMode>(() => standalone ? 'complete' : 'task')
   const [staffMode, setStaffMode] = useState<'tab' | 'scoreTab'>('tab')
   const [autoFollow, setAutoFollow] = useState(false)
   const [loopRangeEnabled, setLoopRangeEnabled] = useState(false)
@@ -50,11 +53,11 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
   const [followBar, setFollowBar] = useState<number | null>(null)
   const displayRef = useRef({ pageFirst: 1, barCount: 1, pageSize: 1, staffMode: 'tab' as 'tab' | 'scoreTab' })
   const followRef = useRef({ autoFollow: false, mode: 'task' as ScoreMode, pages: [] as ReturnType<typeof makeScorePages>, taskRouteIndexes: [] as number[] })
-  const renderKey = `${song.id}:${task.id}:${simplified}:${mode}:${staffMode}:${pageSize}:${pageIndex}`
+  const renderKey = `${song.id}:${task?.id ?? 'standalone'}:${isSimplified}:${mode}:${staffMode}:${pageSize}:${pageIndex}`
 
   const routeBars = useMemo(() => getRouteBars(song.id), [song.id])
-  const taskRouteIndexes = useMemo(() => getTaskRouteIndexes(song.id, task.stage, simplified), [song.id, task.stage, simplified])
-  const taskBars = useMemo(() => getTaskScoreBars(song.id, task.stage, simplified), [song.id, task.stage, simplified])
+  const taskRouteIndexes = useMemo(() => getTaskRouteIndexes(song.id, stage, isSimplified), [song.id, stage, isSimplified])
+  const taskBars = useMemo(() => getTaskScoreBars(song.id, stage, isSimplified), [song.id, stage, isSimplified])
   const visibleBars = mode === 'complete' ? Array.from({ length: manifest.barCount }, (_, index) => index + 1) : taskBars
   const lastVisibleIndex = Math.max(0, visibleBars.length - 1)
   const pages = useMemo(() => makeScorePages(visibleBars, pageSize, mode === 'task'), [visibleBars.join(','), pageSize, mode])
@@ -94,7 +97,7 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
     setLoopEndIndex(Math.max(0, visibleBars.length - 1))
     setSpeed(1)
     stopPlayback()
-  }, [task.id, simplified, mode, pageSize, song.id, visibleBars.length, stopPlayback])
+  }, [task?.id, isSimplified, mode, pageSize, song.id, visibleBars.length, stopPlayback])
 
   useEffect(() => {
     let disposed = false
@@ -207,8 +210,8 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
 
   useEffect(() => {
     const api = apiRef.current
-    if (api) api.playbackSpeed = (bpm / manifest.bpm) * speed
-  }, [bpm, manifest.bpm, speed, ready])
+    if (api) api.playbackSpeed = (playbackBpm / manifest.bpm) * speed
+  }, [playbackBpm, manifest.bpm, speed, ready])
 
   function setPage(next: number) {
     stopPlayback()
@@ -220,8 +223,8 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
     if (!api?.score) return null
     const ticks = tickSequence(api, routeBars)
     let routeIndexes: number[]
-    if (mode === 'task') {
-      routeIndexes = getTaskRouteIndexes(song.id, task.stage, simplified)
+    if (mode === 'task' && !standalone) {
+      routeIndexes = getTaskRouteIndexes(song.id, stage, isSimplified)
     } else routeIndexes = routeBars.map((_, index) => index)
     let occurrenceStart = routeIndexes[page.routeIndexes[0] ?? 0] ?? 0
     let occurrenceEnd = routeIndexes[page.routeIndexes[page.routeIndexes.length - 1] ?? 0] ?? occurrenceStart
@@ -349,12 +352,14 @@ export function ScorePlayer({ song, task, bpm, simplified }: { song: Song; task:
   const label = mode === 'complete' ? `完整曲谱，共 ${manifest.barCount} 小节` : `练习范围，第 ${pageFirst}${pageFirst === pageLast ? '' : ` 到 ${pageLast}`} 小节`
 
   return <section className="practice-score-card score-player-card" aria-label={`${song.title}数字曲谱与试听`}>
-    <div className="practice-score-head"><div><h4>{mode === 'complete' ? '完整课程曲谱' : '今天练这段'}</h4><p>{manifest.attribution} · {manifest.timeSignature} · {bpm} 教学 BPM{manifest.tempoUnit === 'dotted-quarter' ? '（附点四分音符）' : ''}</p></div><span>{label}</span></div>
+    <div className="practice-score-head"><div><h4>{standalone ? '完整曲目 TAB' : mode === 'complete' ? '完整课程曲谱' : '今天练这段'}</h4><p>{manifest.attribution} · {manifest.timeSignature} · {playbackBpm}{standalone ? '' : ' 教学'} BPM{manifest.tempoUnit === 'dotted-quarter' ? '（附点四分音符）' : ''}</p></div><span>{label}</span></div>
     <p className="practice-score-help">四线 TAB 从上到下是 A、E、C、G 弦；数字代表品位，0 是空弦。同一拍对齐的音一起弹。{playing && followBar ? ` 当前播放第 ${followBar} 小节。` : ''}</p>
     <p className="score-review-note">{manifest.sourceStatus}。谱面来源只用于核对与署名，练习可在本站完成。</p>
     <div className="score-player-toolbar" role="group" aria-label="曲谱显示方式">
-      <button className={mode === 'task' ? 'is-active' : ''} type="button" onClick={() => { stopPlayback(); setMode('task') }}><BookOpen size={15} />本步练习</button>
-      <button className={mode === 'complete' ? 'is-active' : ''} type="button" onClick={() => { stopPlayback(); setMode('complete') }}>完整谱</button>
+      {!standalone && <>
+        <button className={mode === 'task' ? 'is-active' : ''} type="button" onClick={() => { stopPlayback(); setMode('task') }}><BookOpen size={15} />本步练习</button>
+        <button className={mode === 'complete' ? 'is-active' : ''} type="button" onClick={() => { stopPlayback(); setMode('complete') }}>完整谱</button>
+      </>}
       <label className="score-staff-toggle"><input type="checkbox" checked={staffMode === 'scoreTab'} onChange={(event) => setStaffMode(event.target.checked ? 'scoreTab' : 'tab')} />同时显示五线谱</label>
     </div>
     <div className="score-player-viewport" ref={viewportRef}>
