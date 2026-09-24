@@ -71,7 +71,7 @@ const songConfigs: Omit<Song, 'tasks'>[] = [
     palette: (['plum', 'blue', 'clay', 'plum'] as const)[index], neteaseTrackId: undefined,
     route: item.route.map((label) => ({ label })),
     courseNote: item.id === 'castle-in-the-sky'
-      ? '本课程按你提供的莉莉克丝版本录入：标准调、4/4 拍、约 92 BPM；练习页用 HTML 与 SVG 自行绘制完整 TAB，不显示原图。谱面共 8 行，每行 3 小节，小节号分别从 1、4、7、10、13、16、19、22 开始。'
+      ? '本课程按你提供的莉莉克丝版本录入：标准调、4/4 拍、约 92 BPM；练习页读取本课程 MusicXML，由 alphaTab 绘制四线 TAB 与五线谱并播放，不显示原图。谱面共 8 行，每行 3 小节，小节号分别从 1、4、7、10、13、16、19、22 开始。'
       : `参考版本：${item.scoreUrl}。课程按 High-G 标准调弦设计；站内 TAB 练习为自制技巧练习，不冒充或复制参考谱中的原曲小节。本站谱卡的旋律音高尚未逐音核对该参考谱，页面中的单音为拾艺自制教学音型。站内节拍器速度和 4/4 仅为练习设置，不代表参考谱标注；原曲拍号与速度请以该参考谱为准。曲目署名：${item.artist}。`,
   })),
 ]
