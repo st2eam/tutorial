@@ -90,6 +90,30 @@ function ChordDiagram({ name, onClick, large = false }: { name: ChordName; onCli
 
 const SCORE_STRING_ORDER: UkuleleString[] = ['A', 'E', 'C', 'G']
 const SCORE_OPEN_MIDI: Record<UkuleleString, number> = { G: 67, C: 60, E: 64, A: 69 }
+const UKULELE_HARMONICS = [0, 1, 0.72, 0.48, 0.34, 0.24, 0.17, 0.12, 0.08, 0.05]
+
+function createUkuleleWave(context: AudioContext) {
+  return context.createPeriodicWave(new Float32Array(UKULELE_HARMONICS.length), Float32Array.from(UKULELE_HARMONICS))
+}
+
+function scheduleUkuleleNote(context: AudioContext, wave: PeriodicWave, frequency: number, start: number, duration: number, volume: number) {
+  const oscillator = context.createOscillator()
+  const filter = context.createBiquadFilter()
+  const gain = context.createGain()
+  oscillator.setPeriodicWave(wave)
+  oscillator.frequency.value = frequency
+  filter.type = 'lowpass'
+  filter.frequency.setValueAtTime(5200, start)
+  filter.frequency.exponentialRampToValueAtTime(2600, start + Math.max(0.08, Math.min(duration, 0.24)))
+  gain.gain.setValueAtTime(0.0001, start)
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.006)
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + Math.max(0.08, duration * 0.88))
+  oscillator.connect(filter)
+  filter.connect(gain)
+  gain.connect(context.destination)
+  oscillator.start(start)
+  oscillator.stop(start + Math.max(0.1, duration * 0.92))
+}
 
 function ScoreMeasureGraphic({ measure, sheet, sequenceNumber, onChordClick }: { measure: ScoreMeasure; sheet: ScoreSheet; sequenceNumber: number; onChordClick: (chord: ChordName) => void }) {
   const totalTicks = sheet.timeSignature === '6/8' ? 12 : Number(sheet.timeSignature.split('/')[0]) * 4
@@ -174,20 +198,14 @@ function PracticeScoreCard({ song, task, bpm, simplified, onChordClick }: { song
   function playCurrentPage() {
     if (!('AudioContext' in window)) return
     const context = new AudioContext()
+    const ukuleleWave = createUkuleleWave(context)
     void context.resume()
     const ticksPerBar = sheet.timeSignature === '6/8' ? 12 : Number(sheet.timeSignature.split('/')[0]) * 4
     const tickSeconds = 60 / bpm / (sheet.tempoUnit === 'dotted-quarter' ? 6 : 4)
     const tone = (string: UkuleleString, fret: number, tick: number, duration: number, stagger = 0) => {
-      const oscillator = context.createOscillator()
-      const gain = context.createGain()
       const start = context.currentTime + tick * tickSeconds + stagger
-      oscillator.type = 'triangle'
-      oscillator.frequency.value = 440 * 2 ** ((SCORE_OPEN_MIDI[string] + fret - 69) / 12)
-      gain.gain.setValueAtTime(0.0001, start)
-      gain.gain.exponentialRampToValueAtTime(0.13, start + 0.012)
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + Math.max(0.09, duration * tickSeconds * 0.82))
-      oscillator.connect(gain); gain.connect(context.destination)
-      oscillator.start(start); oscillator.stop(start + Math.max(0.1, duration * tickSeconds * 0.85))
+      const frequency = 440 * 2 ** ((SCORE_OPEN_MIDI[string] + fret - 69) / 12)
+      scheduleUkuleleNote(context, ukuleleWave, frequency, start, duration * tickSeconds, 0.13)
     }
     currentIds.forEach((id, measureIndex) => {
       const measure = sheet.measures[id]
@@ -317,6 +335,7 @@ function CastleScoreViewer({ song, task, bpm, simplified }: { song: Song; task: 
     }
     if (!('AudioContext' in window) || currentMeasures.length === 0) return
     const context = new AudioContext()
+    const ukuleleWave = createUkuleleWave(context)
     audioRef.current = context
     void context.resume()
     const openMidi: Record<CastleString, number> = { G: 67, C: 60, E: 64, A: 69 }
@@ -335,15 +354,8 @@ function CastleScoreViewer({ song, task, bpm, simplified }: { song: Song; task: 
     const scheduleTone = (note: CastleNote, event: CastleScoreEventRef, noteIndex: number, durationTicks: number) => {
       const stagger = event.event.arpeggio ? noteIndex * 0.028 : 0
       const start = context.currentTime + event.tick * secondsPerTick + stagger
-      const oscillator = context.createOscillator()
-      const gain = context.createGain()
-      oscillator.type = 'triangle'
-      oscillator.frequency.value = 440 * 2 ** ((openMidi[note.string] + note.fret - 69) / 12)
-      gain.gain.setValueAtTime(0.0001, start)
-      gain.gain.exponentialRampToValueAtTime(0.12, start + 0.012)
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + Math.max(0.08, durationTicks * secondsPerTick * 0.9))
-      oscillator.connect(gain); gain.connect(context.destination)
-      oscillator.start(start); oscillator.stop(start + Math.max(0.1, durationTicks * secondsPerTick))
+      const frequency = 440 * 2 ** ((openMidi[note.string] + note.fret - 69) / 12)
+      scheduleUkuleleNote(context, ukuleleWave, frequency, start, durationTicks * secondsPerTick, 0.12)
     }
     events.forEach((entry, entryIndex) => {
       entry.event.notes.forEach((note, noteIndex) => {
