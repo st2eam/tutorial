@@ -22,30 +22,37 @@ export function getRouteBars(songId: string): number[] {
   return manifest.playOrder.map((id) => barMap.get(id) ?? Number(id.replace(/^bar-/, '')))
 }
 
-function getCastleBars(stage: number, simplified: boolean): number[] {
-  const rows = Array.from({ length: 8 }, (_, index) => [index * 3 + 1, index * 3 + 2, index * 3 + 3])
-  if (simplified) {
-    if (stage <= 3) return [1]
-    if (stage === 4) return [4]
-    if (stage === 5) return [7]
-    if (stage === 6) return [10, 11, 12]
-    if (stage === 7) return rows.slice(0, 3).flat()
-    if (stage >= 8) return rows[0].slice(0, 2)
-  }
-  if (stage === 1 || stage >= 7) return rows.flat()
-  if (stage === 2) return rows[0]
-  if (stage === 3) return rows[0]
-  if (stage === 4) return rows[1]
-  if (stage === 5) return rows[2]
-  return rows.slice(3, 6).flat()
+const CASTLE_STAGE_BARS: Record<number, number[]> = {
+  1: [1, 2, 3],
+  2: Array.from({ length: 8 }, (_, index) => index + 2),
+  3: Array.from({ length: 9 }, (_, index) => index + 10),
+  4: Array.from({ length: 9 }, (_, index) => index + 19),
+  5: Array.from({ length: 8 }, (_, index) => index + 28),
+  6: Array.from({ length: 10 }, (_, index) => index + 36),
+}
+
+const CASTLE_SIMPLIFIED_BARS: Record<number, number[]> = {
+  1: [1],
+  2: [2, 3],
+  3: [10, 11, 12],
+  4: [19, 20],
+  5: [28, 29],
+  6: [36, 37],
+  7: Array.from({ length: 9 }, (_, index) => index + 1),
+  8: [1, 2],
+}
+
+function getCastleTaskRouteIndexes(stage: number, simplified: boolean): number[] {
+  const route = getRouteBars('castle-in-the-sky')
+  if (stage >= 7 && !simplified) return route.map((_, index) => index)
+  const selected = simplified ? CASTLE_SIMPLIFIED_BARS[stage] : CASTLE_STAGE_BARS[stage]
+  return (selected ?? CASTLE_SIMPLIFIED_BARS[8]).map((bar) => route.findIndex((candidate) => candidate === bar)).filter((index) => index >= 0)
 }
 
 export function getTaskRouteIndexes(songId: string, stage: number, simplified = false): number[] {
   const route = getRouteBars(songId)
-  if (songId === 'castle-in-the-sky') {
-    const selected = getCastleBars(stage, simplified)
-    return selected.map((bar) => Math.max(0, route.indexOf(bar)))
-  }
+  if (songId === 'castle-in-the-sky') return getCastleTaskRouteIndexes(stage, simplified)
+
   let indexes: number[]
   if (stage >= 7) indexes = route.map((_, index) => index)
   else if (stage === 1) indexes = route.slice(0, 2).map((_, index) => index)
@@ -58,11 +65,8 @@ export function getTaskRouteIndexes(songId: string, stage: number, simplified = 
 }
 
 export function getTaskScoreBars(songId: string, stage: number, simplified: boolean): number[] {
-  if (songId === 'castle-in-the-sky') return simplified ? getCastleBars(stage, true) : getCastleBars(stage, false)
   const route = getRouteBars(songId)
-  const indexes = getTaskRouteIndexes(songId, stage, false)
-  const bars = indexes.map((index) => route[index])
-  return simplified ? bars.slice(0, 1) : bars
+  return getTaskRouteIndexes(songId, stage, simplified).map((index) => route[index])
 }
 
 export function makeScorePages(bars: number[], pageSize: number, keepOccurrences = false): ScorePage[] {

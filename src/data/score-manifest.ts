@@ -2,118 +2,24 @@ export const COURSE_SCORE_MANIFEST = {
   "castle-in-the-sky": {
     "file": "/scores/castle-in-the-sky.musicxml",
     "timeSignature": "4/4",
-    "bpm": 92,
+    "bpm": 90,
     "tempoUnit": "quarter",
-    "tunedStringsTopToBottom": [
-      "A4",
-      "E4",
-      "C4",
-      "G4"
-    ],
-    "attribution": "莉莉克丝 Leleex · 曲：久石让",
-    "sourceUrl": "https://www.ukuleleba.com/22389.html",
-    "sourceStatus": "按用户提供谱面录入；逐小节已核对",
-    "parts": [
-      {
-        "id": "line-1",
-        "label": "第 1 行",
-        "bars": [
-          1,
-          2,
-          3
-        ]
-      },
-      {
-        "id": "line-2",
-        "label": "第 2 行",
-        "bars": [
-          4,
-          5,
-          6
-        ]
-      },
-      {
-        "id": "line-3",
-        "label": "第 3 行",
-        "bars": [
-          7,
-          8,
-          9
-        ]
-      },
-      {
-        "id": "line-4",
-        "label": "第 4 行",
-        "bars": [
-          10,
-          11,
-          12
-        ]
-      },
-      {
-        "id": "line-5",
-        "label": "第 5 行",
-        "bars": [
-          13,
-          14,
-          15
-        ]
-      },
-      {
-        "id": "line-6",
-        "label": "第 6 行",
-        "bars": [
-          16,
-          17,
-          18
-        ]
-      },
-      {
-        "id": "line-7",
-        "label": "第 7 行",
-        "bars": [
-          19,
-          20,
-          21
-        ]
-      },
-      {
-        "id": "line-8",
-        "label": "第 8 行",
-        "bars": [
-          22,
-          23,
-          24
-        ]
-      }
-    ],
+    "tunedStringsTopToBottom": ["A4", "E4", "C4", "G4"],
+    "attribution": "薇小咩 · 曲：久石让",
+    "sourceUrl": "https://www.bilibili.com/cheese/play/ss14671",
+    "sourceStatus": "依据用户提供的两页截图转写；节奏按横向排版间距估算，品位与时值待逐项校对",
+    "parts": Array.from({ length: 15 }, (_, index) => ({
+      id: "line-" + (index + 1),
+      label: "第 " + (index + 1) + " 行",
+      bars: Array.from({ length: 3 }, (_, offset) => index * 3 + offset + 1),
+    })),
     "playOrder": [
       "bar-01",
-      "bar-02",
-      "bar-03",
-      "bar-04",
-      "bar-05",
-      "bar-06",
-      "bar-07",
-      "bar-08",
-      "bar-09",
-      "bar-10",
-      "bar-11",
-      "bar-12",
-      "bar-13",
-      "bar-14",
-      "bar-15",
-      "bar-16",
-      "bar-17",
-      "bar-18",
-      "bar-19",
-      "bar-20",
-      "bar-21",
-      "bar-22",
-      "bar-23",
-      "bar-24"
+      ...Array.from({ length: 33 }, (_, index) => "bar-" + String(index + 2).padStart(2, "0")),
+      ...Array.from({ length: 32 }, (_, index) => "bar-" + String(index + 2).padStart(2, "0")),
+      ...Array.from({ length: 11 }, (_, index) => "bar-" + String(index + 35).padStart(2, "0")),
     ],
-    "barCount": 24
+    "barCount": 45
   },
   "always-with-me": {
     "file": "/scores/always-with-me.musicxml",

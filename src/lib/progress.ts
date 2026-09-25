@@ -18,6 +18,7 @@ export type CourseProgress = {
   completionChecks: string[]
   lastFeedback: TaskFeedback | null
   lastStudiedAt: string
+  scoreRevision?: string
 }
 export type UserProgress = {
   version: 2
@@ -29,6 +30,7 @@ export type ProgressBackup = { app: 'shiyi'; version: 2; exportedAt: string; dat
 
 export const STORAGE_KEY = 'shiyi-learning-progress-v1'
 export const LEGACY_STORAGE_KEY = 'shiyin-progress-v1'
+export const CASTLE_SCORE_REVISION = 'castle-high-g-45-bars-v1'
 export const emptyProgress = (): UserProgress => ({ version: 2, activeCourseId: null, courses: {}, history: [] })
 
 export function loadProgress(): UserProgress {
@@ -37,7 +39,7 @@ export function loadProgress(): UserProgress {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return emptyProgress()
     const parsed: unknown = JSON.parse(raw)
-    return validateProgress(parsed) ? parsed.data : emptyProgress()
+    return validateProgress(parsed) ? migrateCastleScore(parsed.data) : emptyProgress()
   } catch {
     return emptyProgress()
   }
@@ -56,6 +58,7 @@ export function getCourseProgress(data: UserProgress, courseId: string, firstTas
     completionChecks: [],
     lastFeedback: null,
     lastStudiedAt: '',
+    ...(courseId === 'castle-in-the-sky' ? { scoreRevision: CASTLE_SCORE_REVISION } : {}),
   }
 }
 
@@ -182,7 +185,30 @@ export function validateProgressBackup(value: unknown): UserProgress | null {
   if (!value || typeof value !== 'object') return null
   const backup = value as Partial<ProgressBackup>
   if (backup.app !== 'shiyi' || backup.version !== 2 || !validateProgress({ data: backup.data })) return null
-  return backup.data ?? null
+  return backup.data ? migrateCastleScore(backup.data) : null
+}
+
+function migrateCastleScore(data: UserProgress): UserProgress {
+  const previous = data.courses['castle-in-the-sky']
+  if (!previous || previous.scoreRevision === CASTLE_SCORE_REVISION) return data
+  const firstTaskId = SONGS.find((song) => song.id === 'castle-in-the-sky')?.tasks[0]?.id
+  if (!firstTaskId) return data
+  return {
+    ...data,
+    courses: {
+      ...data.courses,
+      'castle-in-the-sky': {
+        currentTaskId: firstTaskId,
+        completedTaskIds: [],
+        reviewTaskId: null,
+        simplifiedTaskId: null,
+        completionChecks: [],
+        lastFeedback: null,
+        lastStudiedAt: '',
+        scoreRevision: CASTLE_SCORE_REVISION,
+      },
+    },
+  }
 }
 
 function validateProgress(value: unknown): value is { data: UserProgress } {
@@ -200,6 +226,7 @@ function validateProgress(value: unknown): value is { data: UserProgress } {
     if (!(item.reviewTaskId === null || validTaskId(item.reviewTaskId)) || !(item.simplifiedTaskId === null || validTaskId(item.simplifiedTaskId))) return false
     if (!Array.isArray(item.completionChecks) || !item.completionChecks.every((check) => typeof check === 'string')) return false
     if (!(item.lastFeedback === null || isFeedback(item.lastFeedback)) || typeof item.lastStudiedAt !== 'string') return false
+    if (item.scoreRevision !== undefined && typeof item.scoreRevision !== 'string') return false
   }
 
   return data.history.every((rawEntry) => {

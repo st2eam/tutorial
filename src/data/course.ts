@@ -52,6 +52,7 @@ export type Song = {
 
 export const STAGES = ['认识歌曲', '单个和弦', '和弦转换', '节奏型', '分段慢练', '完整演奏', '加入演唱', '完整弹唱']
 export const FINGERSTYLE_STAGES = ['认识四线谱', '右手拨弦', '单音旋律', '加入和声音', '前段慢练', '后段慢练', '连接全曲', '完整独奏']
+export const CASTLE_STAGES = ['开头与读谱', '第 2–9 小节', '第 10–18 小节', '第 19–27 小节', '第 28–35 小节', '第 36–45 小节', '全曲慢速连接', '全曲目标速度']
 export type SongKind = Song['kind']
 
 type LessonDraft = Omit<LessonTask, 'id' | 'songId' | 'stage' | 'stageName' | 'tempoSteps' | 'scoreGuide'>
@@ -61,7 +62,7 @@ const songConfigs: Omit<Song, 'tasks'>[] = [
   { kind: 'singalong', id: 'chengdu', title: '成都', artist: '赵雷', mood: '温柔 · 民谣', key: 'C 指法 · 原调 D（夹品按音域选）', bpm: 91, timeSignature: '6/8', chords: ['C', 'G', 'Em', 'Am', 'F', 'Dm'], intro: '先抓住六个和弦和长歌段落，再逐步连成弹唱。', fit: '适合练习和弦转换', fitLabel: '循序渐进', palette: 'clay', sourceUrl: 'https://music.163.com/#/song?id=436514312', scoreUrl: 'https://www.ukuleleba.com/22137.html', neteaseTrackId: 436514312, route: [{ label: '前奏' }, { label: '主歌 A' }, { label: '主歌 B' }, { label: '副歌 1' }, { label: '间奏' }, { label: '主歌再现' }, { label: '副歌 2', repeatTo: '副歌 1' }, { label: '尾奏' }], courseNote: '已按所选参考谱核对：C 指法、原调 D、6/8 拍、约 91 BPM；谱面列出 C、G、Em、Am、F、Dm 六个和弦及一种伴奏型。谱头给出女声夹 0 品、男声夹 2 品两个参考，实际夹品按个人音域选择。本站六拍下扫只是入门节拍练习，不是原谱伴奏型；原谱伴奏含拨弦动作。' },
   { kind: 'singalong', id: 'nanshannan', title: '南山南', artist: '马頔', mood: '叙事 · 民谣', key: '参考调式待核对', bpm: 65, timeSignature: '4/4', chords: ['Fmaj7', 'G7', 'Em7', 'Am', 'Dm7', 'C', 'Dm', 'G', 'Cadd9', 'Gsus2', 'C7', 'F'], intro: '先听懂段落的轻重，再挑战谱里的色彩和弦。', fit: '适合进入下一阶段', fitLabel: '稍有挑战', palette: 'blue', sourceUrl: 'https://music.163.com/#/song?id=29715551', scoreUrl: 'https://www.ukuleleba.com/915.html', neteaseTrackId: 29715551, route: [{ label: '前奏' }, { label: '主歌一' }, { label: '主歌二' }, { label: '主歌三' }, { label: '尾声' }], courseNote: '当前唯一参考页的文字可见内容提到七和弦与挂留和弦，但没有可确认的谱头调式、拍号、速度或完整和弦表。页面保留的和弦候选及课程 4/4、65 BPM 均待按该页配套谱图复核；不得据此认作原曲进行。本站谱卡是自制教学音型，旋律待核对。' },
   ...[
-    { id: 'castle-in-the-sky', title: '天空之城（君をのせて）', artist: '久石让', mood: '纯音乐 · 动画配乐', key: '标准调 · High-G', bpm: 92, scoreUrl: 'https://www.ukuleleba.com/22389.html', sourceUrl: 'https://www.ukuleleba.com/22389.html', difficulty: '指弹入门', route: ['总谱说明', '第 1–3 小节', '第 1 小节慢练', '第 4–6 小节', '第 7–9 小节', '第 10–18 小节', '全曲慢速连接', '全曲 1–24 小节'] },
+    { id: 'castle-in-the-sky', title: '天空之城（君をのせて）', artist: '久石让', mood: '纯音乐 · 动画配乐', key: '标准调 · High-G', bpm: 90, scoreUrl: 'https://www.bilibili.com/cheese/play/ss14671', sourceUrl: 'https://www.bilibili.com/cheese/play/ss14671', difficulty: '指弹入门', route: ['开头与读谱', '第 2–9 小节', '第 10–18 小节', '第 19–27 小节', '第 28–35 小节', '第 36–45 小节', '全曲慢速连接', '全曲目标速度'] },
     { id: 'always-with-me', title: 'Always with Me', artist: '木村弓', mood: '电影主题 · 器乐独奏', key: 'High-G · 简易独奏参考', bpm: 72, scoreUrl: 'https://www.ukuleleba.com/14714.html', sourceUrl: 'https://www.ukuleleba.com/14714.html', difficulty: '指弹入门', route: ['前奏动机', '主题 A', '主题 A 延展', '连接句', '主题 B', '主题回归', '收尾', '完整独奏'] },
     { id: 'canon-in-c', title: '卡农（C 调改编）', artist: 'Johann Pachelbel', mood: '古典 · 分解和弦', key: 'C 调改编 · High-G', bpm: 72, scoreUrl: 'https://ukulele-pdf.com/canon-in-c-mr-pook/', sourceUrl: 'https://ukulele-pdf.com/canon-in-c-mr-pook/', difficulty: '循序渐进', route: ['低音型', '主题 A', '主题 A 重复', '主题 B', '连接句', '主题再现', '尾奏', '完整独奏'] },
     { id: 'summer', title: 'Summer（菊次郎的夏天）', artist: '久石让', mood: '纯音乐 · 电影配乐', key: 'High-G · 指弹进阶', bpm: 96, scoreUrl: 'https://ukulelehunt.com/2022/05/05/joe-hisaishi-summer-from-kikujiro-tabs/', sourceUrl: 'https://ukulelehunt.com/2022/05/05/joe-hisaishi-summer-from-kikujiro-tabs/', difficulty: '进阶', route: ['主题动机', '琶音型', '主题 A', '主题 A 变化', '低音连接', '主题 B', '段落衔接', '完整独奏'] },
@@ -71,7 +72,7 @@ const songConfigs: Omit<Song, 'tasks'>[] = [
     palette: (['plum', 'blue', 'clay', 'plum'] as const)[index], neteaseTrackId: undefined,
     route: item.route.map((label) => ({ label })),
     courseNote: item.id === 'castle-in-the-sky'
-      ? '本课程按你提供的莉莉克丝版本录入：标准调、4/4 拍、约 92 BPM；完整曲目 TAB 已放在本详情页，详情与练习页共用同一份 MusicXML，由 alphaTab 绘制四线 TAB 与五线谱并播放，不展示原图。原谱共 8 行，每行 3 小节，小节号分别从 1、4、7、10、13、16、19、22 开始。'
+      ? '本课程依据你提供的两页薇小咩谱面截图手工录入：High-G、4/4 拍、♩=90，共 45 小节，并在 MusicXML 中设置反复与第一／第二结尾。上线前请再按原图逐项校对音符和节奏。线上课程链接仅用于标注作者相关作品，未确认其展示了同一谱面。'
       : `参考版本：${item.scoreUrl}。课程按 High-G 标准调弦设计；站内 TAB 练习为自制技巧练习，不冒充或复制参考谱中的原曲小节。本站谱卡的旋律音高尚未逐音核对该参考谱，页面中的单音为拾艺自制教学音型。站内节拍器速度和 4/4 仅为练习设置，不代表参考谱标注；原曲拍号与速度请以该参考谱为准。曲目署名：${item.artist}。`,
   })),
 ]
@@ -121,16 +122,15 @@ const fingerstyleGoals = [
 ] as const
 
 const skyScoreLessons: Partial<LessonDraft>[] = [
-  { title: '先认识这份参考谱', why: '先认清这张谱的调弦、读谱方向和小节编号，后面每一步都能直接找到位置。', section: '整页原谱', focus: '8 行 · 每行 3 小节 · 4/4 · 约 92 BPM', scoreCue: '练习页谱卡按页显示完整原谱，每页 1–2 小节；原谱的八行分别从小节号 1、4、7、10、13、16、19、22 开始，可按页码找到对应小节。', steps: ['查看下方练习谱卡，确认从上到下的弦名是 A、E、C、G。', '八行的起始小节号依次是 1、4、7、10、13、16、19、22；每行原谱包含 3 小节。', '数字表示品位，0 表示空弦；上下对齐的数字同时拨，横向从左到右读。'], success: '能找到第 1 行和第 22 小节，并说出 0 代表空弦。', simplifiedSteps: ['只看第 1 小节，从练习谱卡页码找到它。', '指出 TAB 最上面的 A 弦和最下面的 G 弦。'], simplifiedSuccess: '能找到第 1 小节，并认出 A 弦与 G 弦。' },
-  { title: '跟弹原谱第 1–3 小节', why: '先从完整曲目 TAB 的开头三小节练起，熟悉按弦与拨弦的配合。', section: '原谱第 1–3 小节', focus: '小节号 1、2、3', scoreCue: '本步谱卡定位在第 1–3 小节，按页码依次练完三个小节；谱卡显示的是原谱音符。', steps: ['在页码显示第 1 小节的谱卡找到开头音组。', '从左到右逐个看 TAB 数字；先确认所在弦，再按对应品位，0 不用按。', '依次翻页并跟谱拨完第 1、2、3 小节；上下对齐的数字同时拨。'], success: '能跟谱弹完第 1–3 小节，弦和品位对应正确，慢速不中断。', simplifiedSteps: ['只练第 1 小节第一组音。', '先指出每个数字所在的弦和品位，再慢慢拨响。'], simplifiedSuccess: '第 1 小节开头一组音能按谱弹对。' },
-  { title: '单独读弹第 1 小节', why: '缩小到一小节，集中练会读弦、认品位和辨认同时拨奏。', section: '原谱第 1 小节', focus: '只练小节号 1', scoreCue: '谱卡已缩到第 1 小节；今天从这一页最左侧的音开始。', steps: ['在页码显示第 1 小节的谱卡找到开头音组。', '确认数字所在弦：上到下 A、E、C、G；0 是空弦，其他数字是品位。', '按原谱节奏拨完第 1 小节；上下对齐的数字同时拨。'], success: '能按原谱弹完第 1 小节，弦、品位和同时拨奏都读对。', simplifiedSteps: ['只弹第 1 小节开头第一组数字。', '先指出每个数字对应的弦和品位，再拨弦。'], simplifiedSuccess: '能正确读出并弹响第 1 小节开头。' },
-  { title: '照原谱练第 4–6 小节', why: '从第 4 小节继续，按谱卡的页码找到连续的三个小节。', section: '原谱第 4–6 小节', focus: '小节号 4、5、6', scoreCue: '本步谱卡定位在第 4–6 小节，原谱中的这一组从第 4 小节开始。', steps: ['在页码显示第 4 小节的谱卡找到小节号，依次练第 4、5、6 小节。', '数字对应所在弦的品位；空弦 0 不按，左手指尖靠近品丝按下。', '先逐小节弹对，再连弹三小节；同一拍上下对齐的数字一起拨。'], success: '能按谱完成第 4–6 小节，按弦不闷音，节拍不中断。', simplifiedSteps: ['只练第 4 小节第一拍的音。', '逐根确认弦和品位，再继续下一音。'], simplifiedSuccess: '第 4 小节开头一拍的音能弹清楚。' },
-  { title: '慢练原谱第 7–9 小节', why: '继续沿完整曲目 TAB 往后练三个小节，把新音型放进稳定拍点里。', section: '原谱第 7–9 小节', focus: '小节号 7、8、9', scoreCue: '本步谱卡定位在第 7–9 小节，按页码依次练完三个小节。', steps: ['在页码显示第 7 小节的谱卡先单独弹这一小节。', '再按谱弹第 8、9 小节；相邻音之间放松手指，不要抢拍。', '把第 7–9 小节连弹两遍，错音后继续跟拍，结束后再回看错处。'], success: '第 7–9 小节能从头连到尾，错音时不丢失拍点。', simplifiedSteps: ['今天只弹第 7 小节。', '每一拍先读弦和品位，再慢慢拨弦。'], simplifiedSuccess: '第 7 小节可以慢速弹完。' },
-  { title: '慢练原谱第 10–18 小节', why: '把连续九小节分成三组练习，先稳住每组，再沿谱卡页码接起来。', section: '原谱第 10–18 小节', focus: '小节号 10–18', scoreCue: '谱卡定位在第 10–18 小节；原谱分组起点为 10、13、16，每组三小节，站内谱卡仍按 1–2 小节分页。', steps: ['按谱卡先练第 10–12 小节，再练第 13–15 小节。', '接着练第 16–18 小节；每次上下对齐的数字一起拨。', '按页码把第 10–18 小节连起来，节拍器先用 48 BPM。'], success: '第 10–18 小节按原谱音符分组练完并能慢速连弹。', simplifiedSteps: ['只练第 10–12 小节。', '读准弦和品位后再逐音弹。'], simplifiedSuccess: '第 10–12 小节能慢速弹完。' },
-  { title: '慢速连接原谱全曲', why: '把已经分组练过的内容按完整 TAB 顺序连起来，先保持拍子不断。', section: '原谱第 1–24 小节', focus: '小节号 1–24 · 按谱卡页码前进', scoreCue: '按原谱每组三小节的起点依次定位：1、4、7、10、13、16、19、22，完整走到第 24 小节；站内每页显示 1–2 小节。', steps: ['按原谱分组起点找到各组三小节，依次弹奏，再按页码连接完整路线。', '第 19–24 小节也要弹到；遇到卡点仍继续数拍，不要求马上达到原速。', '从第 1 小节慢速连到第 24 小节，最后一个音按谱面收住。'], success: '能以慢速按谱从第 1 小节连续弹到第 24 小节。', simplifiedSteps: ['只连接第 1–9 小节，按谱卡页码慢慢前进。', '熟悉后再继续连接剩下的小节。'], simplifiedSuccess: '第 1–9 小节可以连续慢弹。' },
-  { title: '按原谱 92 BPM 完整独奏', why: '最后一遍沿用同一张谱，从第 1 小节走到第 24 小节，逐步回到标注速度。', section: '原谱第 1–24 小节', focus: '24 小节 · 4/4 · 约 92 BPM', scoreCue: '参考谱的速度标注为约 92 BPM。按页码从第 1 小节演奏到第 24 小节，完成整条路线。', steps: ['先用已经稳定的速度弹完整首，确认 24 小节都弹到。', '每次把节拍器提高少量，逐步接近 92 BPM，不删音也不改节奏。', '最后按谱从头到尾完成一遍；错音后继续，不从头重来。'], success: '按参考谱从第 1–24 小节完整独奏，整体连贯度达到约 80%。', simplifiedSteps: ['先只弹第 1–2 小节，使用能稳定演奏的慢速。', '两小节连起来后仍继续数拍；稳定后再扩大到更多小节。'], simplifiedSuccess: '能以舒适慢速连续弹完第 1–2 小节，不因失误停下。' },
+  { title: '跟弹原谱第 1–3 小节', why: '先熟悉 High-G 四弦 TAB、开头节奏和同时拨奏。', section: '原谱第 1–3 小节', focus: '小节 1–3 · 4/4 · ♩=90', scoreCue: '下方谱卡定位在原谱第 1–3 小节。数字是品位，0 是空弦；遇到反复符号按谱面提示演奏。', steps: ['确认从上到下是 A、E、C、G 弦。', '先慢读第 1 小节，遇到上下对齐的数字时一起拨。', '连弹第 1–3 小节，按谱面节奏收住句尾。'], success: '能按谱完成第 1–3 小节，弦、品位和拍点清楚。', simplifiedSteps: ['只弹第 1 小节开头的音组。', '逐个确认弦和品位，再慢慢拨响。'], simplifiedSuccess: '能正确读出并弹响第 1 小节开头。' },
+  { title: '练习第 2–9 小节', why: '重复起点从第 2 小节开始，练熟开头旋律和伴奏的衔接。', section: '原谱第 2–9 小节', focus: '小节 2–9', scoreCue: '谱卡定位在原谱第 2–9 小节；按 TAB 上标出的反复记号演奏。', steps: ['先分开练第 2–5 小节和第 6–9 小节。', '留意旋律音与开放弦伴奏的音量平衡。', '把第 2–9 小节连起来，不因错音停拍。'], success: '能稳定完成第 2–9 小节。', simplifiedSteps: ['只练第 2–3 小节。', '先读弦和品，再慢速连接。'], simplifiedSuccess: '第 2–3 小节能慢速连弹。' },
+  { title: '练习第 10–18 小节', why: '分段读谱后再连接，让音型变化保持稳定。', section: '原谱第 10–18 小节', focus: '小节 10–18', scoreCue: '谱卡定位在原谱第 10–18 小节；每小节按谱面节奏拨奏。', steps: ['每次练三小节，先弹准再提高速度。', '注意换弦时左手放松，空弦保持清晰。', '连接第 10–18 小节，维持均匀拍点。'], success: '能按顺序完成第 10–18 小节。', simplifiedSteps: ['只练第 10–12 小节。', '逐音确认弦和品位。'], simplifiedSuccess: '第 10–12 小节能慢速弹完。' },
+  { title: '练习第 19–27 小节', why: '继续沿完整谱向后，熟悉高把位和跨弦伴奏音。', section: '原谱第 19–27 小节', focus: '小节 19–27', scoreCue: '谱卡定位在原谱第 19–27 小节。', steps: ['分成三小节一组练习。', '高品位音靠近品丝按下，避免杂音。', '从第 19 小节连到第 27 小节。'], success: '能清晰完成第 19–27 小节。', simplifiedSteps: ['只练第 19–20 小节。', '先慢弹并听清每个音。'], simplifiedSuccess: '第 19–20 小节能连贯弹奏。' },
+  { title: '练习第 28–35 小节与反复结尾', why: '这一段经过第一结尾、反复返回和第二结尾，按记号辨认路线。', section: '原谱第 28–35 小节', focus: '小节 28–35 · 第一／第二结尾', scoreCue: '第 34 小节是第一结尾，第 35 小节是第二结尾。', steps: ['先弹第 28–34 小节，理解第一结尾的落点。', '反复后从第 2 小节重新开始，按谱继续到第二结尾。', '单独练第 35 小节后，把反复段连起来。'], success: '能辨认并演奏两种结尾，不跳过反复段。', simplifiedSteps: ['只练第 28–29 小节。', '逐音确认高把位指法。'], simplifiedSuccess: '第 28–29 小节能慢速弹清楚。' },
+  { title: '练习第 36–45 小节', why: '把最后的主题和收尾练稳，留出最后一个音的延长。', section: '原谱第 36–45 小节', focus: '小节 36–45', scoreCue: '谱卡定位在原谱第 36–45 小节，最后以第 45 小节结束。', steps: ['将第 36–40 小节和第 41–45 小节分开练。', '留意谱面中的延音标记和结束小节。', '连弹第 36–45 小节，最后一个音自然收尾。'], success: '能连贯完成第 36–45 小节。', simplifiedSteps: ['只练第 36–37 小节。', '先慢速读准每根弦的品位。'], simplifiedSuccess: '第 36–37 小节能慢速完成。' },
+  { title: '按完整反复路线慢速连接', why: '按第一遍和第二遍的路线弹完整谱，熟悉反复后的回接。', section: '完整演奏路线', focus: '45 个印刷小节 · 含反复与双结尾', scoreCue: '完整路线为：1、2–34、2–33、35–45。播放按 MusicXML 反复记号展开。', steps: ['先以舒适慢速弹完第一遍并进入第一结尾。', '反复后从第 2 小节重新开始，并跳过第一结尾。', '接入第二结尾后继续弹到第 45 小节。'], success: '能按完整反复路线从头到尾弹奏。', simplifiedSteps: ['只连接完整路线开头的第 1–9 小节。', '稳定后再继续后续乐句。'], simplifiedSuccess: '能慢速连接开头乐句。' },
+  { title: '按 90 BPM 完整独奏', why: '最后按谱头标注的速度完成整首，保持反复和结尾路线准确。', section: '完整演奏 · ♩=90', focus: '45 小节 · 4/4 · ♩=90', scoreCue: '按谱头 ♩=90 演奏完整曲目；第 34 小节走第一结尾，反复后接第 35 小节第二结尾。', steps: ['先在能稳定演奏的速度完成全曲。', '每次提高少量速度，逐步接近 90 BPM。', '按标注速度演奏完整路线，错音后继续跟拍。'], success: '能按 90 BPM 完成全曲，反复和双结尾正确。', simplifiedSteps: ['先弹完整路线的第 1–2 小节。', '稳定后再增加小节范围。'], simplifiedSuccess: '能以舒适速度连续弹完第 1–2 小节。' },
 ]
-
 export const SONGS: Song[] = songConfigs.map((song) => ({
   ...song,
   tasks: (song.kind === 'fingerstyle' ? fingerstyleGoals.map(([title, why, cue, notes], index) => ({
@@ -153,7 +153,7 @@ export const SONGS: Song[] = songConfigs.map((song) => ({
   })) : lessonPlans[song.id]).map((draft, index) => {
     const isCastleReferenceCourse = song.id === 'castle-in-the-sky'
     const skyLesson = isCastleReferenceCourse ? skyScoreLessons[index] : undefined
-    const lesson = skyLesson ? { ...draft, ...skyLesson, tab: undefined, bpm: index === 7 ? 92 : 48 } : draft
+    const lesson = skyLesson ? { ...draft, ...skyLesson, tab: undefined, bpm: index === 7 ? 90 : 48 } : draft
     const focusChords = song.chords.filter((chord) => lesson.focus.includes(chord))
     const chords = song.kind === 'fingerstyle' ? [] : focusChords.length > 0 ? focusChords : lesson.chords.length > 0 ? lesson.chords : [song.chords[0]]
     const pattern = 'pattern' in lesson ? lesson.pattern : undefined

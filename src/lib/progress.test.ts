@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { importer } from '@coderline/alphatab'
@@ -6,7 +6,7 @@ import { CHORDS, SONGS, STAGES, FINGERSTYLE_STAGES } from '../data/course'
 import { CATEGORIES, COURSES, GUIDED_COURSES, SONG_COURSES, SKILLS } from '../data/catalog'
 import { COURSE_SCORE_MANIFEST } from '../data/score-manifest'
 import { getRouteBars, getTaskRouteIndexes, getTaskScoreBars, makeScorePages } from '../data/score-mapping'
-import { currentGuidedLesson, currentTask, emptyProgress, getGuidedProgress, getSongProgress, isGuidedCourseCompleted, isSongCompleted, markSongRoute, recordFeedback, recordGuidedFeedback, startGuidedCourse, startSong, validateProgressBackup } from './progress'
+import { CASTLE_SCORE_REVISION, currentGuidedLesson, currentTask, emptyProgress, getGuidedProgress, getSongProgress, isGuidedCourseCompleted, isSongCompleted, markSongRoute, recordFeedback, recordGuidedFeedback, startGuidedCourse, startSong, validateProgressBackup } from './progress'
 
 const song = SONGS[0]
 
@@ -94,17 +94,28 @@ describe('歌曲专属课程内容', () => {
     }
     expect(mappedTasks).toBe(56)
     expect(getRouteBars('always-with-me').length).toBeGreaterThan(COURSE_SCORE_MANIFEST['always-with-me'].barCount)
-    expect(COURSE_SCORE_MANIFEST['castle-in-the-sky'].barCount).toBe(24)
+    expect(COURSE_SCORE_MANIFEST['castle-in-the-sky'].barCount).toBe(45)
   })
 
-  it('天空之城详情完整谱覆盖 24 小节，最后一步的简化范围和文字一致', () => {
+  it('天空之城的八阶段映射覆盖新谱与印刷小节号', () => {
     const sky = SONGS.find((course) => course.id === 'castle-in-the-sky')!
-    expect(getTaskScoreBars(sky.id, 8, false)).toEqual(Array.from({ length: 24 }, (_, index) => index + 1))
+    expect(sky.bpm).toBe(90)
+    expect(getTaskScoreBars(sky.id, 1, false)).toEqual([1, 2, 3])
+    expect(getTaskScoreBars(sky.id, 2, false)).toEqual(Array.from({ length: 8 }, (_, index) => index + 2))
+    expect(getTaskScoreBars(sky.id, 3, false)).toEqual(Array.from({ length: 9 }, (_, index) => index + 10))
+    expect(getTaskScoreBars(sky.id, 4, false)).toEqual(Array.from({ length: 9 }, (_, index) => index + 19))
+    expect(getTaskScoreBars(sky.id, 5, false)).toEqual(Array.from({ length: 8 }, (_, index) => index + 28))
+    expect(getTaskScoreBars(sky.id, 6, false)).toEqual(Array.from({ length: 10 }, (_, index) => index + 36))
+    const expectedRoute = [1, ...Array.from({ length: 33 }, (_, index) => index + 2), ...Array.from({ length: 32 }, (_, index) => index + 2), ...Array.from({ length: 11 }, (_, index) => index + 35)]
+    expect(getRouteBars(sky.id)).toEqual(expectedRoute)
+    expect(expectedRoute).toHaveLength(77)
+    expect(getTaskScoreBars(sky.id, 8, false)).toEqual(expectedRoute)
     expect(getTaskScoreBars(sky.id, 8, true)).toEqual([1, 2])
-    expect(sky.courseNote).toContain('完整曲目 TAB 已放在本详情页')
-    expect(sky.tasks[0].scoreCue).toContain('每页 1–2 小节')
+    expect(sky.courseNote).toContain('45 小节')
+    expect(sky.tasks[0].scoreCue).toContain('第 1–3 小节')
     expect(sky.tasks[0].simplifiedSteps.join(' ')).toContain('第 1 小节')
-    expect(sky.tasks.slice(1).flatMap((task) => [task.scoreCue, ...task.steps, ...task.simplifiedSteps]).join(' ')).not.toMatch(/第一行|第二行|第三行|每行先|换行/)
+    expect(sky.tasks[4].scoreCue).toContain('第 34 小节是第一结尾')
+    expect(sky.tasks[6].scoreCue).toContain('1、2–34、2–33、35–45')
     expect(sky.tasks[7].simplifiedSteps.join(' ')).toContain('第 1–2 小节')
     expect(sky.tasks[7].simplifiedSuccess).toContain('第 1–2 小节')
   })
@@ -119,15 +130,61 @@ describe('歌曲专属课程内容', () => {
       expect(tabBeats.some((beat) => beat.duration > 4)).toBe(true)
     }
     const castle = readFileSync(resolve(process.cwd(), 'public/scores/castle-in-the-sky.musicxml'), 'utf8')
-    expect(castle).toContain('<tie type="start"/>')
-    expect(castle).toContain('<tie type="stop"/>')
+    expect(castle).toContain('<slur type="start"')
+    expect(castle).toContain('<slur type="stop"')
+    expect(castle).toContain('<repeat direction="forward"/>')
+    expect(castle).toContain('<repeat direction="backward" times="2"/>')
+    expect(castle).toContain('<ending number="1" type="start"/>')
+    expect(castle).toContain('<ending number="2" type="start"/>')
+    const completeCastle = importer.ScoreLoader.loadScoreFromBytes(new Uint8Array(new TextEncoder().encode(castle)))
+    expect(completeCastle.masterBars).toHaveLength(45)
+    expect(completeCastle.tracks[0].staves[1].bars).toHaveLength(45)
+    expect(completeCastle.masterBars[1].isRepeatStart).toBe(true)
+    expect(completeCastle.masterBars[33].repeatCount).toBe(2)
+    expect(completeCastle.masterBars[33].alternateEndings).toBe(1)
+    expect(completeCastle.masterBars[34].alternateEndings).toBe(2)
     const chengdu = importer.ScoreLoader.loadScoreFromBytes(new Uint8Array(readFileSync(resolve(process.cwd(), 'public/scores/chengdu.musicxml'))))
     const fourFour = importer.ScoreLoader.loadScoreFromBytes(new Uint8Array(readFileSync(resolve(process.cwd(), 'public/scores/anheqiao.musicxml'))))
     expect(chengdu.masterBars[0].calculateDuration()).toBeLessThan(fourFour.masterBars[0].calculateDuration())
   })
+
+  it('离线缓存清单中的每个文件都存在', () => {
+    const serviceWorker = readFileSync(resolve(process.cwd(), 'public/sw.js'), 'utf8')
+    const entries = serviceWorker.match(/const APP_SHELL = \[([\s\S]*?)\]/)?.[1]
+    expect(entries).toBeDefined()
+    const paths = [...entries!.matchAll(/["']\.\/([^"']+)["']/g)].map((match) => match[1])
+    expect(paths).toContain('scores/castle-in-the-sky.musicxml')
+    expect(paths).toContain('soundfonts/ukulele.sf2')
+    expect(paths).toContain('font/Bravura.svg')
+    expect(paths.every((path) => existsSync(resolve(process.cwd(), path === 'index.html' ? path : `public/${path}`)))).toBe(true)
+  })
 })
 
 describe('学习进度规则', () => {
+  it('只重置旧版天空之城进度并保留其他课程与历史记录', () => {
+    const sky = SONGS.find((item) => item.id === 'castle-in-the-sky')!
+    const other = SONGS.find((item) => item.id === 'always-with-me')!
+    const started = startSong(emptyProgress(), sky)
+    const otherProgress = startSong(emptyProgress(), other).courses[other.id]
+    const history = [{ id: 'old-score-history', courseId: sky.id, taskId: sky.tasks[0].id, taskTitle: '旧版练习记录', feedback: 'easy' as const, at: '2026-01-01T00:00:00.000Z' }]
+    const oldData = {
+      ...started,
+      courses: {
+        ...started.courses,
+        [sky.id]: { ...started.courses[sky.id], currentTaskId: sky.tasks[4].id, completedTaskIds: [sky.tasks[0].id], completionChecks: ['playing'], scoreRevision: 'castle-24-bars-old' },
+        [other.id]: otherProgress,
+      },
+      history,
+    }
+    const migrated = validateProgressBackup({ app: 'shiyi', version: 2, exportedAt: new Date().toISOString(), data: oldData })!
+    expect(migrated.courses[sky.id].currentTaskId).toBe(sky.tasks[0].id)
+    expect(migrated.courses[sky.id].completedTaskIds).toEqual([])
+    expect(migrated.courses[sky.id].completionChecks).toEqual([])
+    expect(migrated.courses[sky.id].scoreRevision).toBe(CASTLE_SCORE_REVISION)
+    expect(migrated.courses[other.id]).toEqual(otherProgress)
+    expect(migrated.history).toEqual(history)
+  })
+
   it('顺利完成后解锁下一步', () => {
     const started = startSong(emptyProgress(), song)
     const next = recordFeedback(started, song, 'easy')

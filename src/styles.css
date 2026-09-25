@@ -343,17 +343,29 @@ a { color: inherit; }
 .score-player-toolbar > button { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--muted); font: inherit; cursor: pointer; }
 .score-player-toolbar > button.is-active { border-color: #c9b7ce; background: #f0eaf1; color: var(--primary); font-weight: 650; }
 .score-staff-toggle, .score-player-controls > label { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; }
+.score-jump-control { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; }
+.score-jump-control select { min-height: 36px; padding: 0 26px 0 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
 .score-player-toolbar input, .score-player-controls input { width: 17px; height: 17px; accent-color: var(--primary); }
 .score-player-viewport { width: 100%; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #fffefa; }
 .score-player-notation { width: 100%; max-width: 100%; min-width: 0; }
 .score-player-notation svg { display: block; width: 100%; max-width: 100%; height: auto; }
 .score-player-notation .at-content { max-width: 100%; }
+.score-player-viewport--continuous { overflow: visible; }
+.complete-score-page { gap: 16px; overflow-anchor: none; }
+.complete-score-actions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.complete-score-intro { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.castle-score-entry { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 20px; border: 1px solid var(--line); border-radius: 15px; background: linear-gradient(135deg, #fffdfa, #f8f1f5); }
+.castle-score-entry h3 { margin: 4px 0; color: var(--ink); font-family: var(--serif); font-size: 21px; }
+.castle-score-entry p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.score-page-link { justify-self: start; }
 .score-player-notation .at-cursor-bar { fill: rgba(104, 70, 95, .13); }
 .score-player-notation .at-cursor-beat { width: 3px; fill: var(--primary); opacity: .9; }
 .score-player-notation .at-highlight { fill: var(--primary); stroke: var(--primary); }
 .score-player-status { margin: 0; padding: 18px; color: var(--muted); font-size: 13px; text-align: center; }
 .score-player-error { color: #a33636; }
 .score-player-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 15px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: 11px; background: #f8f1f5; }
+.score-player-card--continuous { overflow: visible; }
+.score-player-controls--continuous { position: sticky; top: 12px; z-index: 8; background: rgba(248, 241, 245, .97); box-shadow: 0 7px 18px rgba(46, 30, 44, .12); backdrop-filter: blur(8px); }
 .score-player-controls .button { min-height: 44px; }
 .score-player-controls > label { min-height: 44px; }
 .score-speed-control select { min-height: 36px; padding: 0 26px 0 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
@@ -675,6 +687,7 @@ a { color: inherit; }
   .song-title-row h3 { font-size: 18px; }
 }
 @media (max-width: 767px) {
+  .score-player-controls--continuous { top: 66px; }
   .skills-welcome, .guided-detail-hero, .today-empty { padding: 21px 18px; }
   .skills-welcome h2, .guided-detail-hero h2, .today-empty h2 { font-size: 26px; }
   .skill-card { grid-template-columns: 36px minmax(0, 1fr) 18px; gap: 9px; padding: 10px; }

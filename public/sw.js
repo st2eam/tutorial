@@ -1,10 +1,10 @@
-const CACHE_NAME = 'shiyi-v6'
+const CACHE_NAME = 'shiyi-v7'
 const APP_SHELL = [
   './', './index.html', './manifest.webmanifest', './icons/icon.svg',
   './scores/always-with-me.musicxml', './scores/anheqiao.musicxml', './scores/canon-in-c.musicxml',
   './scores/castle-in-the-sky.musicxml', './scores/chengdu.musicxml', './scores/nanshannan.musicxml', './scores/summer.musicxml',
   './soundfonts/ukulele.sf2', './soundfonts/LICENSE-ukulele.txt', './soundfonts/README-ukulele.txt',
-  './font/Bravura.woff2', './font/Bravura.svg', './font/Bravura-OFL.txt', './font/LICENSE',
+  './font/Bravura.woff2', './font/Bravura.svg', './font/Bravura-OFL.txt',
 ]
 
 self.addEventListener('install', (event) => {
