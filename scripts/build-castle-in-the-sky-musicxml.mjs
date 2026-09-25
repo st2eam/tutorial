@@ -120,6 +120,6 @@ const measures = Array.from({ length: 45 }, (_, index) => {
 }).join('')
 
 const musicXml = `<?xml version="1.0" encoding="UTF-8"?>
-<score-partwise version="4.0"><work><work-title>天空之城（君をのせて）</work-title></work><identification><creator type="composer">久石让</creator><creator type="arranger">薇小咩</creator><rights>依据用户提供的谱面截图录入</rights><encoding><software>拾艺 · 手工录入 MusicXML</software></encoding></identification><part-list><score-part id="P1"><part-name>尤克里里</part-name><score-instrument id="P1-I1"><instrument-name>Ukulele</instrument-name></score-instrument><midi-instrument id="P1-I1"><midi-channel>1</midi-channel><midi-program>24</midi-program></midi-instrument></score-part></part-list><part id="P1">${measures}</part></score-partwise>`
+<score-partwise version="4.0"><work><work-title>天空之城（君をのせて）</work-title></work><identification><creator type="composer">久石让</creator><creator type="arranger">薇小咩</creator><rights>依据用户提供的谱面截图录入</rights><encoding><software>拾艺 · 手工录入 MusicXML</software></encoding></identification><part-list><score-part id="P1"><part-name>尤克里里</part-name><score-instrument id="P1-I1"><instrument-name>Ukulele</instrument-name></score-instrument><midi-instrument id="P1-I1"><midi-channel>1</midi-channel><midi-program>1</midi-program></midi-instrument></score-part></part-list><part id="P1">${measures}</part></score-partwise>`
 
 writeFileSync('public/scores/castle-in-the-sky.musicxml', musicXml)
