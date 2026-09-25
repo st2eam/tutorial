@@ -31,6 +31,12 @@ const CASTLE_STAGE_BARS: Record<number, number[]> = {
   6: Array.from({ length: 10 }, (_, index) => index + 36),
 }
 
+export function getCastleLessonStagesForBar(bar: number): number[] {
+  return Object.entries(CASTLE_STAGE_BARS)
+    .filter(([, bars]) => bars.includes(bar))
+    .map(([stage]) => Number(stage))
+}
+
 const CASTLE_SIMPLIFIED_BARS: Record<number, number[]> = {
   1: [1],
   2: [2, 3],

@@ -5,7 +5,7 @@ import { importer } from '@coderline/alphatab'
 import { CHORDS, SONGS, STAGES, FINGERSTYLE_STAGES } from '../data/course'
 import { CATEGORIES, COURSES, GUIDED_COURSES, SONG_COURSES, SKILLS } from '../data/catalog'
 import { COURSE_SCORE_MANIFEST } from '../data/score-manifest'
-import { getRouteBars, getTaskRouteIndexes, getTaskScoreBars, makeScorePages } from '../data/score-mapping'
+import { getCastleLessonStagesForBar, getRouteBars, getTaskRouteIndexes, getTaskScoreBars, makeScorePages } from '../data/score-mapping'
 import { CASTLE_SCORE_REVISION, currentGuidedLesson, currentTask, emptyProgress, getGuidedProgress, getSongProgress, isGuidedCourseCompleted, isSongCompleted, markSongRoute, recordFeedback, recordGuidedFeedback, startGuidedCourse, startSong, validateProgressBackup } from './progress'
 
 const song = SONGS[0]
@@ -118,6 +118,13 @@ describe('歌曲专属课程内容', () => {
     expect(sky.tasks[6].scoreCue).toContain('1、2–34、2–33、35–45')
     expect(sky.tasks[7].simplifiedSteps.join(' ')).toContain('第 1–2 小节')
     expect(sky.tasks[7].simplifiedSuccess).toContain('第 1–2 小节')
+    expect(getCastleLessonStagesForBar(1)).toEqual([1])
+    expect(getCastleLessonStagesForBar(2)).toEqual([1, 2])
+    expect(getCastleLessonStagesForBar(3)).toEqual([1, 2])
+    expect(getCastleLessonStagesForBar(34)).toEqual([5])
+    expect(getCastleLessonStagesForBar(35)).toEqual([5])
+    expect(getCastleLessonStagesForBar(45)).toEqual([6])
+    expect(getCastleLessonStagesForBar(46)).toEqual([])
   })
 
   it('休止、延音和 6/8 拍时长都保存在可解析的 MusicXML 中', () => {

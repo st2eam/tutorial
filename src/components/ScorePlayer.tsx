@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { ArrowLeft, ArrowRight, AudioLines, BookOpen, Pause, Play, RotateCcw, Volume2 } from 'lucide-react'
 import type { AlphaTabApi as AlphaTabApiType } from '@coderline/alphatab'
 import type { LessonTask, Song } from '../data/course'
 import { COURSE_SCORE_MANIFEST } from '../data/score-manifest'
-import { getRouteBars, getTaskRouteIndexes, getTaskScoreBars, makeScorePages } from '../data/score-mapping'
+import { getCastleLessonStagesForBar, getRouteBars, getTaskRouteIndexes, getTaskScoreBars, makeScorePages } from '../data/score-mapping'
 
 type ScoreMode = 'task' | 'complete'
+type MeasureHitTarget = { bar: number; left: number; top: number; width: number; height: number }
+type MeasureMenu = { bar: number; visit: number; routeIndex: number }
 const MOBILE_QUERY = '(max-width: 767px)'
 
 function tickRangeForBars(api: AlphaTabApiType, firstBar: number, lastBar: number) {
@@ -19,17 +21,17 @@ function tickRangeForBars(api: AlphaTabApiType, firstBar: number, lastBar: numbe
   return { startTick: firstTick, endTick: lastTick }
 }
 
-function scrollToScoreBar(viewport: HTMLDivElement | null, bar: number, barsPerRow: number, barCount: number) {
+function scrollToScoreBar(viewport: HTMLDivElement | null, api: AlphaTabApiType | null, bar: number) {
   const surface = viewport?.querySelector<HTMLElement>('.at-surface')
-  if (!viewport || !surface) return
-  const rowCount = Math.ceil(barCount / barsPerRow)
-  const rowIndex = Math.floor((bar - 1) / barsPerRow)
-  const bounds = surface.getBoundingClientRect()
-  const rowCenter = bounds.top + bounds.height * (rowIndex + 0.5) / rowCount
-  window.scrollTo({ top: Math.max(0, window.scrollY + rowCenter - window.innerHeight * 0.34), behavior: 'smooth' })
+  const bounds = api?.renderer?.boundsLookup?.findMasterBarByIndex(bar - 1)?.realBounds
+  const rendererWidth = api?.renderer?.width
+  if (!viewport || !surface || !bounds || !rendererWidth) return
+  const surfaceRect = surface.getBoundingClientRect()
+  const top = surfaceRect.top + bounds.y * surfaceRect.width / rendererWidth
+  window.scrollTo({ top: Math.max(0, window.scrollY + top - window.innerHeight * 0.34), behavior: 'smooth' })
 }
 
-export function ScorePlayer({ song, task, bpm, simplified, standalone = false, continuous = false }: { song: Song; task?: LessonTask; bpm?: number; simplified?: boolean; standalone?: boolean; continuous?: boolean }) {
+export function ScorePlayer({ song, task, bpm, simplified, standalone = false, continuous = false, initialBar, initialVisit = 1, onOpenLesson }: { song: Song; task?: LessonTask; bpm?: number; simplified?: boolean; standalone?: boolean; continuous?: boolean; initialBar?: number; initialVisit?: number; onOpenLesson?: (stage: number, bar: number, visit: number) => void }) {
   const manifest = COURSE_SCORE_MANIFEST[song.id as keyof typeof COURSE_SCORE_MANIFEST]
   const stage = task?.stage ?? 8
   const isSimplified = simplified ?? false
@@ -41,10 +43,14 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
   const [error, setError] = useState('')
   const [pageSize, setPageSize] = useState(() => window.matchMedia(MOBILE_QUERY).matches ? 1 : 2)
   const [pageIndex, setPageIndex] = useState(0)
-  const [jumpRouteIndex, setJumpRouteIndex] = useState(0)
+  const [jumpRouteIndex, setJumpRouteIndex] = useState(() => {
+    if (!initialBar) return 0
+    const matching = getRouteBars(song.id).flatMap((bar, index) => bar === initialBar ? [index] : [])
+    return matching[Math.max(0, initialVisit - 1)] ?? matching[0] ?? 0
+  })
   const [mode, setMode] = useState<ScoreMode>(() => standalone ? 'complete' : 'task')
   const [staffMode, setStaffMode] = useState<'tab' | 'scoreTab'>('tab')
-  const [autoFollow, setAutoFollow] = useState(false)
+  const [autoFollow, setAutoFollow] = useState(continuous)
   const [loopRangeEnabled, setLoopRangeEnabled] = useState(false)
   const [loopStartIndex, setLoopStartIndex] = useState(0)
   const [loopEndIndex, setLoopEndIndex] = useState(0)
@@ -61,7 +67,16 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
   const customSoundFontPendingRef = useRef(false)
   const pendingSecondEndingRef = useRef(false)
   const [followBar, setFollowBar] = useState<number | null>(null)
-  const routeOccurrenceRef = useRef({ bar: 0, index: -1 })
+  const [selectedBar, setSelectedBar] = useState<number | null>(initialBar ?? null)
+  const [measureTargets, setMeasureTargets] = useState<MeasureHitTarget[]>([])
+  const [measureMenu, setMeasureMenu] = useState<MeasureMenu | null>(null)
+  const routeOccurrenceRef = useRef({
+    bar: initialBar ?? 0,
+    index: initialBar ? (getRouteBars(song.id).flatMap((bar, index) => bar === initialBar ? [index] : [])[Math.max(0, initialVisit - 1)] ?? -1) : -1,
+  })
+  const measureMenuRef = useRef<HTMLElement>(null)
+  const measureMenuTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const firstMeasureActionRef = useRef<HTMLButtonElement>(null)
   const displayRef = useRef({ pageFirst: 1, barCount: 1, pageSize: 1, staffMode: 'tab' as 'tab' | 'scoreTab' })
   const followRef = useRef({ autoFollow: false, mode: 'task' as ScoreMode, pages: [] as ReturnType<typeof makeScorePages>, taskRouteIndexes: [] as number[] })
   const renderKey = `${song.id}:${task?.id ?? 'standalone'}:${isSimplified}:${mode}:${staffMode}:${pageSize}:${pageIndex}`
@@ -105,7 +120,7 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
 
   useEffect(() => {
     setPageIndex(0)
-    setAutoFollow(false)
+    setAutoFollow(continuous)
     setLoopRangeEnabled(false)
     setLoopStartIndex(0)
     setLoopEndIndex(Math.max(0, loopBars.length - 1))
@@ -114,8 +129,33 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
   }, [task?.id, isSimplified, mode, pageSize, song.id, loopBars.length, stopPlayback])
 
   useEffect(() => {
+    if (!measureMenu) return
+    firstMeasureActionRef.current?.focus()
+    return () => measureMenuTriggerRef.current?.focus()
+  }, [measureMenu])
+
+  useEffect(() => {
+    if (continuous && initialBar && ready && measureTargets.length) scrollToScoreBar(viewportRef.current, apiRef.current, initialBar)
+  }, [continuous, initialBar, initialVisit, ready, measureTargets.length])
+
+  useEffect(() => {
+    const api = apiRef.current
+    if (!continuous || !initialBar || !ready || !api?.score) return
+    const indexes = routeBars.flatMap((bar, index) => bar === initialBar ? [index] : [])
+    const routeIndex = indexes[Math.max(0, initialVisit - 1)] ?? indexes[0] ?? 0
+    routeOccurrenceRef.current = { bar: initialBar, index: routeIndex }
+    setJumpRouteIndex(routeIndex)
+    setSelectedBar(initialBar)
+    const target = api.score.masterBars[initialBar - 1]
+    if (target) api.tickPosition = target.start
+  }, [continuous, initialBar, initialVisit, ready, routeBars])
+
+  useEffect(() => {
     let disposed = false
     let api: AlphaTabApiType | null = null
+    let unsubscribeRenderFinished = () => {}
+    let resizeObserver: ResizeObserver | undefined
+    let resizeHandler: (() => void) | undefined
     const target = mountRef.current
     if (!target) return
     setReady(false)
@@ -141,6 +181,43 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
         },
       })
       apiRef.current = api
+      const updateMeasureTargets = () => {
+        if (!continuous) {
+          setMeasureTargets([])
+          return
+        }
+        const surface = target.querySelector<HTMLElement>('.at-surface')
+        const viewport = viewportRef.current
+        const lookup = api?.renderer?.boundsLookup
+        const rendererWidth = api?.renderer?.width
+        if (!surface || !viewport || !lookup || !rendererWidth) return
+        const surfaceRect = surface.getBoundingClientRect()
+        const viewportRect = viewport.getBoundingClientRect()
+        const scaleX = surfaceRect.width / rendererWidth
+        const scaleY = scaleX
+        const next: MeasureHitTarget[] = []
+        for (let index = 0; index < manifest.barCount; index += 1) {
+          const bounds = lookup.findMasterBarByIndex(index)?.lineAlignedBounds
+          if (!bounds || bounds.w <= 0 || bounds.h <= 0) continue
+          next.push({
+            bar: index + 1,
+            left: surfaceRect.left - viewportRect.left + bounds.x * scaleX,
+            top: surfaceRect.top - viewportRect.top + bounds.y * scaleY,
+            width: bounds.w * scaleX,
+            height: bounds.h * scaleY,
+          })
+        }
+        setMeasureTargets(next)
+      }
+      unsubscribeRenderFinished = api.renderFinished.on(() => window.requestAnimationFrame(updateMeasureTargets))
+      if (typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => window.requestAnimationFrame(updateMeasureTargets))
+        resizeObserver.observe(target)
+        if (viewportRef.current) resizeObserver.observe(viewportRef.current)
+      } else {
+        resizeHandler = updateMeasureTargets
+        window.addEventListener('resize', resizeHandler)
+      }
       api.error.on((issue) => {
         if (disposed) return
         if (customSoundFontPendingRef.current) {
@@ -196,7 +273,7 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
         if (continuous) {
           const barsPerRow = displayRef.current.pageSize
           const rowChanged = Math.floor((currentBar - 1) / barsPerRow) !== Math.floor((lastOccurrence.bar - 1) / barsPerRow)
-          if (barChanged && rowChanged) scrollToScoreBar(viewportRef.current, currentBar, barsPerRow, manifest.barCount)
+          if (barChanged && rowChanged) scrollToScoreBar(viewportRef.current, apiRef.current, currentBar)
           return
         }
         const localIndex = currentFollow.mode === 'task' ? currentFollow.taskRouteIndexes.indexOf(routeIndex) : -1
@@ -220,6 +297,9 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
     })
     return () => {
       disposed = true
+      unsubscribeRenderFinished()
+      resizeObserver?.disconnect()
+      if (resizeHandler) window.removeEventListener('resize', resizeHandler)
       api?.destroy()
       if (apiRef.current === api) apiRef.current = null
     }
@@ -327,12 +407,79 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
     stopPlayback()
     setJumpRouteIndex(routeIndex)
     setFollowBar(bar)
+    setSelectedBar(bar)
     routeOccurrenceRef.current = { bar, index: routeIndex }
     const api = apiRef.current
     const target = api?.score?.masterBars[bar - 1]
     if (api && target) {
       api.tickPosition = target.start
-      scrollToScoreBar(viewportRef.current, bar, displayRef.current.pageSize, manifest.barCount)
+      scrollToScoreBar(viewportRef.current, api, bar)
+    }
+  }
+
+  function preferredRouteIndex(bar: number) {
+    const indexes = routeBars.flatMap((candidate, index) => candidate === bar ? [index] : [])
+    const current = routeOccurrenceRef.current
+    if (current.bar === bar && indexes.includes(current.index)) return current.index
+    const visit = current.index >= 34 ? 2 : 1
+    return indexes[Math.min(visit - 1, indexes.length - 1)] ?? indexes[0] ?? 0
+  }
+
+  function openMeasureMenu(bar: number, trigger: HTMLButtonElement) {
+    const routeIndexes = routeBars.flatMap((candidate, index) => candidate === bar ? [index] : [])
+    const routeIndex = preferredRouteIndex(bar)
+    const visit = Math.max(1, routeIndexes.indexOf(routeIndex) + 1)
+    measureMenuTriggerRef.current = trigger
+    setSelectedBar(bar)
+    setJumpRouteIndex(routeIndex)
+    setMeasureMenu({ bar, visit, routeIndex })
+  }
+
+  function chooseMeasureVisit(routeIndex: number) {
+    const measure = measureMenu
+    if (!measure) return
+    const routeIndexes = routeBars.flatMap((bar, index) => bar === measure.bar ? [index] : [])
+    const visit = Math.max(1, routeIndexes.indexOf(routeIndex) + 1)
+    routeOccurrenceRef.current = { bar: measure.bar, index: routeIndex }
+    setJumpRouteIndex(routeIndex)
+    setMeasureMenu({ ...measure, visit, routeIndex })
+  }
+
+  function playSingleMeasure() {
+    const measure = measureMenu
+    const api = apiRef.current
+    const range = measure && api ? tickRangeForBars(api, measure.bar, measure.bar) : null
+    if (!measure || !api || !range || !ready) return
+    stopPlayback()
+    setLoopRangeEnabled(false)
+    setSelectedBar(measure.bar)
+    setJumpRouteIndex(measure.routeIndex)
+    routeOccurrenceRef.current = { bar: measure.bar, index: measure.routeIndex }
+    api.isLooping = false
+    api.playbackRange = range
+    api.tickPosition = range.startTick
+    setFollowBar(measure.bar)
+    setMeasureMenu(null)
+    api.play()
+  }
+
+  function handleMeasureMenuKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setMeasureMenu(null)
+      return
+    }
+    if (event.key !== 'Tab') return
+    const items = measureMenuRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), select')
+    if (!items?.length) return
+    const first = items[0]
+    const last = items[items.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
     }
   }
 
@@ -460,9 +607,47 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
     {continuous && playbackControls}
     <div className={`score-player-viewport ${continuous ? 'score-player-viewport--continuous' : ''}`} ref={viewportRef}>
       <div className="score-player-notation" ref={mountRef} aria-label={continuous ? `完整曲谱，共 ${manifest.barCount} 小节` : `当前页曲谱：${page.bars.map((bar) => `第 ${bar} 小节`).join('、')}`} />
+      {continuous && ready && <div className="score-player-hit-layer" aria-label="可操作的小节">
+        {measureTargets.map((target) => {
+          const indexes = routeBars.flatMap((bar, index) => bar === target.bar ? [index] : [])
+          const routeIndex = preferredRouteIndex(target.bar)
+          const visit = Math.max(1, indexes.indexOf(routeIndex) + 1)
+          const isPlayingHere = playing && followBar === target.bar
+          const isSelectedHere = selectedBar === target.bar
+          return <button
+            key={target.bar}
+            className={`score-measure-hit ${isPlayingHere ? 'is-playing' : ''} ${isSelectedHere ? 'is-selected' : ''}`}
+            style={{ left: target.left, top: target.top, width: target.width, height: target.height }}
+            type="button"
+            aria-label={`第 ${target.bar} 小节${indexes.length > 1 ? `，第 ${visit} 次演奏位置` : ''}，打开小节操作`}
+            aria-pressed={isSelectedHere}
+            aria-current={isPlayingHere ? 'step' : undefined}
+            onClick={(event) => openMeasureMenu(target.bar, event.currentTarget)}
+          />
+        })}
+      </div>}
       {!ready && !error && <p className="score-player-status" role="status">正在加载曲谱和尤克里里音色…</p>}
       {error && <p className="score-player-status score-player-error" role="alert">曲谱加载失败：{error}</p>}
     </div>
+    {measureMenu && <div className="score-measure-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setMeasureMenu(null) }}>
+      <section className="score-measure-menu" role="dialog" aria-modal="true" aria-labelledby="score-measure-menu-title" ref={measureMenuRef} tabIndex={-1} onKeyDown={handleMeasureMenuKeyDown}>
+        <button className="score-measure-menu-close" type="button" aria-label="关闭小节操作" onClick={() => setMeasureMenu(null)}>×</button>
+        <span className="eyebrow">谱面操作</span>
+        <h3 id="score-measure-menu-title">第 {measureMenu.bar} 小节{routeBars.filter((bar) => bar === measureMenu.bar).length > 1 ? ` · 第 ${measureMenu.visit} 次` : ''}</h3>
+        {routeBars.filter((bar) => bar === measureMenu.bar).length > 1 && <label className="score-measure-visit">演奏位置
+          <select aria-label="选择演奏次数" value={measureMenu.routeIndex} onChange={(event) => chooseMeasureVisit(Number(event.target.value))}>
+            {routeBars.flatMap((bar, index) => bar === measureMenu.bar ? [index] : []).map((routeIndex, index) => <option value={routeIndex} key={routeIndex}>第 {index + 1} 次演奏</option>)}
+          </select>
+        </label>}
+        <button className="button button--primary score-measure-action" type="button" ref={firstMeasureActionRef} disabled={!ready} onClick={playSingleMeasure}><Play size={16} />播放本小节一次</button>
+        <div className="score-measure-lessons"><span className="eyebrow">对应教程</span>
+          {getCastleLessonStagesForBar(measureMenu.bar).map((lessonStage) => <button className="button button--secondary score-measure-action" type="button" key={lessonStage} onClick={() => { onOpenLesson?.(lessonStage, measureMenu.bar, measureMenu.visit); setMeasureMenu(null) }}>
+            <BookOpen size={15} />阶段 {lessonStage}：{song.tasks[lessonStage - 1]?.stageName}
+          </button>)}
+          {!getCastleLessonStagesForBar(measureMenu.bar).length && <p>这个小节没有单独对应的阶段教程，可从“继续分段练习”进入全曲练习。</p>}
+        </div>
+      </section>
+    </div>}
     {!continuous && <div className="practice-score-controls">
       <button className="button button--secondary" type="button" onClick={() => setPage(activePage - 1)} disabled={activePage === 0}><ArrowLeft size={15} />上一页</button>
       <span className="score-page-count" aria-live="polite">{mode === 'complete' ? `第 ${pageFirst}${pageFirst === pageLast ? '' : `–${pageLast}`} 小节 · ` : ''}第 ${activePage + 1} / {pages.length} 页</span>

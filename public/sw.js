@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shiyi-v7'
+const CACHE_NAME = 'shiyi-v8'
 const APP_SHELL = [
   './', './index.html', './manifest.webmanifest', './icons/icon.svg',
   './scores/always-with-me.musicxml', './scores/anheqiao.musicxml', './scores/canon-in-c.musicxml',

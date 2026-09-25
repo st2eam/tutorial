@@ -15,7 +15,7 @@ import {
   type TaskFeedback, type UserProgress,
 } from './lib/progress'
 
-type Page = 'today' | 'practice' | 'skills' | 'skill' | 'songs' | 'song' | 'score' | 'guided-course' | 'growth' | 'settings'
+type Page = 'today' | 'practice' | 'skills' | 'skill' | 'songs' | 'song' | 'score' | 'lesson' | 'guided-course' | 'growth' | 'settings'
 const NAV_ITEMS: { id: Page; label: string; Icon: typeof Home }[] = [
   { id: 'today', label: '今日', Icon: Home },
   { id: 'skills', label: '技能', Icon: Shapes },
@@ -30,6 +30,17 @@ function setPage(page: Page) {
 
 function setRoute(page: Page, id?: string) {
   window.location.hash = `/${page}${id ? `/${encodeURIComponent(id)}` : ''}`
+  window.scrollTo(0, 0)
+}
+
+function setScoreRoute(songId: string, bar?: number, visit = 1) {
+  const suffix = bar ? `?bar=${bar}&visit=${visit}` : ''
+  window.location.hash = `/score/${encodeURIComponent(songId)}${suffix}`
+  window.scrollTo(0, 0)
+}
+
+function setLessonRoute(songId: string, stage: number, bar: number, visit: number) {
+  window.location.hash = `/lesson/${encodeURIComponent(songId)}/stage-${stage}?bar=${bar}&visit=${visit}`
   window.scrollTo(0, 0)
 }
 
@@ -160,7 +171,10 @@ function App() {
   const initialRoute = readRoute()
   const [progress, setProgress] = useState<UserProgress>(() => loadProgress())
   const [page, setCurrentPage] = useState<Page>(initialRoute.page)
-  const [selectedSongId, setSelectedSongId] = useState<string | null>(() => ['song', 'score'].includes(initialRoute.page) ? initialRoute.id ?? null : findSong(loadProgress().activeCourseId)?.id ?? null)
+  const [selectedSongId, setSelectedSongId] = useState<string | null>(() => ['song', 'score', 'lesson'].includes(initialRoute.page) ? initialRoute.id ?? null : findSong(loadProgress().activeCourseId)?.id ?? null)
+  const [lessonStage, setLessonStage] = useState<number | undefined>(initialRoute.lessonStage)
+  const [routeBar, setRouteBar] = useState<number | undefined>(initialRoute.bar)
+  const [routeVisit, setRouteVisit] = useState<number>(initialRoute.visit ?? 1)
   const [selectedSkillId, setSelectedSkillId] = useState(initialRoute.page === 'skill' ? initialRoute.id ?? 'ukulele' : 'ukulele')
   const [selectedGuidedCourseId, setSelectedGuidedCourseId] = useState<string | null>(() => initialRoute.page === 'guided-course' ? initialRoute.id ?? null : null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
@@ -175,7 +189,10 @@ function App() {
       const route = readRoute()
       setCurrentPage(route.page)
       window.scrollTo(0, 0)
-      if (route.page === 'song' || route.page === 'score') setSelectedSongId(route.id ?? null)
+      setLessonStage(route.lessonStage)
+      setRouteBar(route.bar)
+      setRouteVisit(route.visit ?? 1)
+      if (route.page === 'song' || route.page === 'score' || route.page === 'lesson') setSelectedSongId(route.id ?? null)
       if (route.page === 'skill') setSelectedSkillId(route.id ?? 'ukulele')
       if (route.page === 'guided-course') setSelectedGuidedCourseId(route.id ?? null)
     }
@@ -320,7 +337,7 @@ function App() {
     <main className="main-layout">
       <div className="main-column">
         <header className="page-topline">
-          <div><span className="eyebrow">{pageLabel(page)}</span><h1>{pageTitle(page, activeSong, selectedSong, selectedGuidedCourse, activeGuidedCourse)}</h1></div>
+          <div><span className="eyebrow">{pageLabel(page)}</span><h1>{pageTitle(page, activeSong, selectedSong, selectedGuidedCourse, activeGuidedCourse, lessonStage)}</h1></div>
           <div className={`network-state network-state--desktop ${online ? '' : 'network-state--offline'}`}><i />{online ? '内容已就绪' : '离线可练习'}</div>
         </header>
 
@@ -336,8 +353,9 @@ function App() {
         {page === 'songs' && <SongsPage progress={progress} onSong={onSongCard} completedSongs={completedSongs.length} />}
         {page === 'song' && selectedSong && <SongPage song={selectedSong} progress={progress} onStart={() => beginSong(selectedSong)} onPractice={() => { beginSong(selectedSong); setPage('practice') }} onFullScore={() => setRoute('score', selectedSong.id)} onRoute={(route) => update((current) => markSongRoute(current, selectedSong, route))} />}
         {page === 'song' && !selectedSong && <SongsPage progress={progress} onSong={onSongCard} completedSongs={completedSongs.length} />}
-        {page === 'score' && selectedSong?.id === 'castle-in-the-sky' && <FullScorePage song={selectedSong} onBack={() => setRoute('song', selectedSong.id)} onPractice={() => { beginSong(selectedSong); setPage('practice') }} />}
+        {page === 'score' && selectedSong?.id === 'castle-in-the-sky' && <FullScorePage song={selectedSong} initialBar={routeBar} initialVisit={routeVisit} onBack={() => setRoute('song', selectedSong.id)} onPractice={() => { beginSong(selectedSong); setPage('practice') }} onOpenLesson={(stage, bar, visit) => setLessonRoute(selectedSong.id, stage, bar, visit)} />}
         {page === 'score' && selectedSong?.id !== 'castle-in-the-sky' && <SongsPage progress={progress} onSong={onSongCard} completedSongs={completedSongs.length} />}
+        {page === 'lesson' && selectedSong?.id === 'castle-in-the-sky' && lessonStage && selectedSong.tasks[lessonStage - 1] && <PracticePage song={selectedSong} task={selectedSong.tasks[lessonStage - 1]} item={getSongProgress(progress, selectedSong)} preview previewBar={routeBar} previewVisit={routeVisit} onBack={() => setScoreRoute(selectedSong.id, routeBar, routeVisit)} onFinish={() => undefined} onFullScore={() => setScoreRoute(selectedSong.id, routeBar, routeVisit)} />}
         {page === 'guided-course' && selectedGuidedCourse && <GuidedCoursePage course={selectedGuidedCourse} progress={progress} onStart={() => beginGuidedCourse(selectedGuidedCourse)} onPractice={() => { beginGuidedCourse(selectedGuidedCourse); setPage('practice') }} />}
         {page === 'guided-course' && !selectedGuidedCourse && <GuidedCoursesPage skill={findSkill(selectedSkillId)} onCourse={onGuidedCourse} />}
         {page === 'growth' && <GrowthPage progress={progress} completedSongs={completedSongs.length} masteredChords={masteredChords} />}
@@ -351,7 +369,7 @@ function App() {
       </aside>
     </main>
 
-    <nav className="bottom-nav" aria-label="主导航">{NAV_ITEMS.map(({ id, label, Icon }) => <button key={id} type="button" className={page === id || (id === 'skills' && ['skill', 'songs', 'song', 'score', 'guided-course'].includes(page)) ? 'bottom-nav-item is-active' : 'bottom-nav-item'} onClick={() => setPage(id)}><Icon size={20} strokeWidth={1.8} /><span>{label}</span></button>)}</nav>
+    <nav className="bottom-nav" aria-label="主导航">{NAV_ITEMS.map(({ id, label, Icon }) => <button key={id} type="button" className={page === id || (id === 'skills' && ['skill', 'songs', 'song', 'score', 'lesson', 'guided-course'].includes(page)) ? 'bottom-nav-item is-active' : 'bottom-nav-item'} onClick={() => setPage(id)}><Icon size={20} strokeWidth={1.8} /><span>{label}</span></button>)}</nav>
 
     {feedbackOpen && (activeSong || activeGuidedCourse) && <FeedbackDialog onSelect={submitFeedback} onClose={() => setFeedbackOpen(false)} taskTitle={task?.title ?? guidedLesson?.title ?? ''} />}
     {toast && <div className="toast" role="status"><CheckCircle2 size={17} />{toast}</div>}
@@ -359,22 +377,34 @@ function App() {
   </div>
 }
 
-function readRoute(): { page: Page; id?: string } {
-  const [rawPage, rawId] = window.location.hash.replace('#/', '').split('/')
+function readRoute(): { page: Page; id?: string; lessonStage?: number; bar?: number; visit?: number } {
+  const [routePath, rawQuery = ''] = window.location.hash.replace(/^#\/?/, '').split('?')
+  const [rawPage, rawId, rawStage] = routePath.split('/')
+  const query = new URLSearchParams(rawQuery)
   if (rawPage === 'songs') return { page: 'skill', id: 'ukulele' }
-  const page = (['today', 'practice', 'skills', 'skill', 'songs', 'song', 'score', 'guided-course', 'growth', 'settings'] as string[]).includes(rawPage) ? rawPage as Page : 'today'
-  return { page, id: rawId ? decodeURIComponent(rawId) : undefined }
+  const page = (['today', 'practice', 'skills', 'skill', 'songs', 'song', 'score', 'lesson', 'guided-course', 'growth', 'settings'] as string[]).includes(rawPage) ? rawPage as Page : 'today'
+  const id = rawId ? decodeURIComponent(rawId) : undefined
+  const parsedBar = Number(query.get('bar'))
+  const parsedVisit = Number(query.get('visit'))
+  const bar = Number.isInteger(parsedBar) && parsedBar >= 1 && parsedBar <= 45 ? parsedBar : undefined
+  const visit = parsedVisit === 2 ? 2 : 1
+  if (page === 'lesson') {
+    const stage = Number(rawStage?.match(/^stage-(\d+)$/)?.[1])
+    if (id !== 'castle-in-the-sky' || !Number.isInteger(stage) || stage < 1 || stage > 6) return { page: 'today' }
+    return { page, id, lessonStage: stage, bar, visit }
+  }
+  return { page, id, bar, visit }
 }
 
 function pageLabel(page: Page) {
-  return ({ today: '你的学习节奏', practice: '专注学习', skills: '技能合集', skill: '技能课程', songs: '尤克里里课程', song: '歌曲学习地图', score: '完整曲谱', 'guided-course': '学习课程', growth: '慢慢积累', settings: '学习空间' })[page]
+  return ({ today: '你的学习节奏', practice: '专注学习', skills: '技能合集', skill: '技能课程', songs: '尤克里里课程', song: '歌曲学习地图', score: '完整曲谱', lesson: '教程预览', 'guided-course': '学习课程', growth: '慢慢积累', settings: '学习空间' })[page]
 }
-function pageTitle(page: Page, active?: Song, selected?: Song, guided?: GuidedCourse, activeGuided?: GuidedCourse) {
-  return ({ today: active || activeGuided ? '今天，继续一点点' : '今天，学一点什么？', practice: '把这一小步练熟', skills: '从一项感兴趣的技能开始', skill: '从基础开始，慢慢深入', songs: '想学的歌，都在这里', song: selected?.title ?? active?.title ?? '歌曲学习地图', score: selected?.title ?? '完整曲谱', 'guided-course': guided?.title ?? '开始一门新课程', growth: '每一次练习都算数', settings: '让学习更顺手' })[page]
+function pageTitle(page: Page, active?: Song, selected?: Song, guided?: GuidedCourse, activeGuided?: GuidedCourse, lessonStage?: number) {
+  return ({ today: active || activeGuided ? '今天，继续一点点' : '今天，学一点什么？', practice: '把这一小步练熟', skills: '从一项感兴趣的技能开始', skill: '从基础开始，慢慢深入', songs: '想学的歌，都在这里', song: selected?.title ?? active?.title ?? '歌曲学习地图', score: selected?.title ?? '完整曲谱', lesson: selected?.tasks[(lessonStage ?? 1) - 1]?.title ?? '教程预览', 'guided-course': guided?.title ?? '开始一门新课程', growth: '每一次练习都算数', settings: '让学习更顺手' })[page]
 }
 
 function Navigation({ page, onSkills }: { page: Page; onSkills: () => void }) {
-  return <nav className="side-nav" aria-label="主导航">{NAV_ITEMS.map(({ id, label, Icon }) => <button key={id} className={page === id || (id === 'skills' && ['skill', 'songs', 'song', 'score', 'guided-course'].includes(page)) ? 'side-nav-item is-active' : 'side-nav-item'} type="button" onClick={id === 'skills' ? onSkills : () => setPage(id)}><Icon size={18} strokeWidth={1.8} /><span>{label}</span>{(page === id || (id === 'skills' && ['skill', 'songs', 'song', 'score', 'guided-course'].includes(page))) && <span className="nav-active-dot" />}</button>)}</nav>
+  return <nav className="side-nav" aria-label="主导航">{NAV_ITEMS.map(({ id, label, Icon }) => <button key={id} className={page === id || (id === 'skills' && ['skill', 'songs', 'song', 'score', 'lesson', 'guided-course'].includes(page)) ? 'side-nav-item is-active' : 'side-nav-item'} type="button" onClick={id === 'skills' ? onSkills : () => setPage(id)}><Icon size={18} strokeWidth={1.8} /><span>{label}</span>{(page === id || (id === 'skills' && ['skill', 'songs', 'song', 'score', 'lesson', 'guided-course'].includes(page))) && <span className="nav-active-dot" />}</button>)}</nav>
 }
 
 function SkillsPage({ onSkill }: { onSkill: (skillId: string) => void }) {
@@ -485,10 +515,10 @@ function TodayPage({ song, item, task, onContinue, onSongs }: { song: Song; item
   </div>
 }
 
-function PracticePage({ song, task, item, onBack, onFinish, onFullScore }: { song: Song; task: NonNullable<ReturnType<typeof findTask>>; item: ReturnType<typeof getSongProgress>; onBack: () => void; onFinish: () => void; onFullScore: () => void }) {
+function PracticePage({ song, task, item, onBack, onFinish, onFullScore, preview = false, previewBar, previewVisit = 1 }: { song: Song; task: NonNullable<ReturnType<typeof findTask>>; item: ReturnType<typeof getSongProgress>; onBack: () => void; onFinish: () => void; onFullScore: () => void; preview?: boolean; previewBar?: number; previewVisit?: number }) {
   const [openChord, setOpenChord] = useState<ChordName | null>(null)
-  const simplified = item.simplifiedTaskId === task.id
-  const isReview = item.reviewTaskId === task.id
+  const simplified = !preview && item.simplifiedTaskId === task.id
+  const isReview = !preview && item.reviewTaskId === task.id
   const bpm = simplified ? task.tempoSteps[0] : task.bpm
   const visibleSteps = simplified ? task.simplifiedSteps : task.steps
   const visibleChords = simplified ? task.chords.slice(0, 1) : task.chords
@@ -501,8 +531,9 @@ function PracticePage({ song, task, item, onBack, onFinish, onFullScore }: { son
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [openChord])
   return <div className="practice-page">
-    <button className="back-button" type="button" onClick={onBack}><ArrowLeft size={16} /> 返回今日</button>
+    <button className="back-button" type="button" onClick={onBack}><ArrowLeft size={16} /> {preview ? '返回完整谱' : '返回今日'}</button>
     <div className="practice-heading"><div><span className="eyebrow">{song.title} <span className="eyebrow-separator">/</span> {task.stageName}</span><h2>{task.title}</h2></div><span className="lesson-number">{String(task.stage).padStart(2, '0')} <i /> 08</span></div>
+    {preview && <div className="gentle-banner"><BookOpen size={17} /><span>这是只读教程预览{previewBar ? ` · 第 ${previewBar} 小节${previewVisit > 1 ? ` · 第 ${previewVisit} 次` : ''}` : ''}。可以阅读和试听，不会修改课程进度或练习记录。</span></div>}
     {(isReview || simplified) && <div className="gentle-banner"><Sparkles size={17} /><span>{isReview ? '今天先温习刚才的内容，稳稳地来。' : '已为你降慢速度并缩小练习范围。先练一个动作就好。'}</span></div>}
     <article className="lesson-card">
       <div className="lesson-card-top"><span className="lesson-label"><span className="lesson-label-dot" />今天学什么</span><span className="lesson-tag">{task.section}</span></div>
@@ -511,13 +542,13 @@ function PracticePage({ song, task, item, onBack, onFinish, onFullScore }: { son
       <div className="lesson-divider" />
       <div className="lesson-label"><span className="lesson-label-dot lesson-label-dot--clay" />跟着做</div>
       <ol className="practice-steps">{visibleSteps.map((step, index) => <li key={step}><span>{String(index + 1).padStart(2, '0')}</span><p>{step}</p></li>)}</ol>
-      {song.id === 'castle-in-the-sky' && <button className="button button--secondary score-page-link" type="button" onClick={onFullScore}>打开 45 小节完整谱 <ArrowRight size={15} /></button>}
+      {song.id === 'castle-in-the-sky' && <button className="button button--secondary score-page-link" type="button" onClick={onFullScore}>{preview ? '返回所选小节' : '打开 45 小节完整谱'} <ArrowRight size={15} /></button>}
       <ScorePlayer song={song} task={task} bpm={bpm} simplified={simplified} />
       {visibleChords.length > 0 && <div className="lesson-resource"><div className="resource-head"><div><span className="eyebrow">今天会用到</span><h4>和弦指法</h4></div><span className="resource-meta">正对指板，从左到右：G · C · E · A</span></div><div className="chord-grid">{visibleChords.map((chord) => <ChordDiagram name={chord} onClick={() => setOpenChord(chord)} key={chord} />)}</div><p className="chord-legend">圆点数字表示按弦手指：1 食指 · 2 中指 · 3 无名指 · 4 小指；○ 表示空弦。</p></div>}
       <div className="lesson-success"><CheckCircle2 size={18} /><div><strong>完成标准</strong><p>{successText}</p></div></div>
     </article>
     <Metronome initialBpm={bpm} timeSignature={song.timeSignature} tempoUnit={scoreManifest.tempoUnit} />
-    <div className="practice-footer"><span><LockKeyhole size={14} /> 完成情况由你自己确认</span><button className="button button--primary button--wide" type="button" onClick={onFinish}>完成本次练习 <Check size={17} /></button></div>
+    {!preview && <div className="practice-footer"><span><LockKeyhole size={14} /> 完成情况由你自己确认</span><button className="button button--primary button--wide" type="button" onClick={onFinish}>完成本次练习 <Check size={17} /></button></div>}
     {openChord && <div className="chord-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpenChord(null) }}><section className="chord-modal" role="dialog" aria-modal="true" aria-labelledby="chord-modal-title" tabIndex={-1}>
       <button className="modal-close icon-button" type="button" aria-label="关闭和弦图" onClick={() => setOpenChord(null)}><X size={18} /></button>
       <span className="eyebrow">和弦指法参考</span><h3 id="chord-modal-title">{openChord} 怎么按</h3>
@@ -566,11 +597,11 @@ function SongPage({ song, progress, onStart, onPractice, onFullScore, onRoute }:
   </div>
 }
 
-function FullScorePage({ song, onBack, onPractice }: { song: Song; onBack: () => void; onPractice: () => void }) {
+function FullScorePage({ song, onBack, onPractice, initialBar, initialVisit, onOpenLesson }: { song: Song; onBack: () => void; onPractice: () => void; initialBar?: number; initialVisit: number; onOpenLesson: (stage: number, bar: number, visit: number) => void }) {
   return <div className="page-content complete-score-page">
     <div className="complete-score-actions"><button className="button button--secondary" type="button" onClick={onBack}><ArrowLeft size={15} />返回歌曲课程</button><button className="button button--secondary" type="button" onClick={onPractice}>继续分段练习 <ArrowRight size={15} /></button></div>
     <p className="complete-score-intro">High-G · 4/4 · ♩=90 · 45 个印刷小节。反复按谱面记号播放，第 34 小节为第一结尾，第 35 小节为第二结尾。</p>
-    <ScorePlayer song={song} standalone continuous />
+    <ScorePlayer song={song} standalone continuous initialBar={initialBar} initialVisit={initialVisit} onOpenLesson={onOpenLesson} />
   </div>
 }
 

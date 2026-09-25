@@ -346,11 +346,28 @@ a { color: inherit; }
 .score-jump-control { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; }
 .score-jump-control select { min-height: 36px; padding: 0 26px 0 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
 .score-player-toolbar input, .score-player-controls input { width: 17px; height: 17px; accent-color: var(--primary); }
-.score-player-viewport { width: 100%; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #fffefa; }
+.score-player-viewport { position: relative; width: 100%; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: #fffefa; }
 .score-player-notation { width: 100%; max-width: 100%; min-width: 0; }
 .score-player-notation svg { display: block; width: 100%; max-width: 100%; height: auto; }
 .score-player-notation .at-content { max-width: 100%; }
 .score-player-viewport--continuous { overflow: visible; }
+.score-player-hit-layer { position: absolute; z-index: 4; inset: 0; pointer-events: none; }
+.score-measure-hit { position: absolute; min-width: 12px; min-height: 44px; padding: 0; border: 0; border-radius: 5px; background: transparent; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
+.score-measure-hit:hover { background: rgba(104, 70, 95, .08); box-shadow: inset 0 0 0 1px rgba(104, 70, 95, .28); }
+.score-measure-hit.is-playing { background: rgba(104, 70, 95, .2); box-shadow: inset 0 0 0 2px var(--primary); }
+.score-measure-hit.is-selected:not(.is-playing) { background: rgba(202, 135, 75, .11); box-shadow: inset 0 0 0 2px var(--clay); }
+.score-measure-hit:focus-visible { z-index: 1; outline: 3px solid var(--clay); outline-offset: 1px; }
+.score-measure-backdrop { position: fixed; z-index: 60; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(35, 29, 36, .38); }
+.score-measure-menu { position: relative; display: grid; width: min(100%, 400px); gap: 12px; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 22px 70px rgba(35, 29, 36, .24); }
+.score-measure-menu h3 { margin: 0; padding-right: 32px; color: var(--ink); font-family: var(--serif); font-size: 24px; font-weight: 500; }
+.score-measure-menu-close { position: absolute; top: 12px; right: 12px; display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--muted); font: inherit; font-size: 24px; cursor: pointer; }
+.score-measure-visit { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+.score-measure-visit select { min-height: 42px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; background: #fffefa; color: var(--ink); font: inherit; }
+.score-measure-action { width: 100%; min-height: 46px; justify-content: flex-start; }
+.score-measure-lessons { display: grid; gap: 8px; margin-top: 4px; }
+.score-measure-lessons > .eyebrow { margin-bottom: 1px; }
+.score-measure-lessons > p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.score-measure-menu button:focus-visible, .score-measure-menu select:focus-visible { outline: 3px solid var(--clay); outline-offset: 2px; }
 .complete-score-page { gap: 16px; overflow-anchor: none; }
 .complete-score-actions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
 .complete-score-intro { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
@@ -707,9 +724,15 @@ a { color: inherit; }
   .score-player-toolbar > label { grid-column: 1 / -1; }
   .score-player-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; padding: 8px; }
   .score-player-controls > * { min-width: 0; }
+  .score-player-controls--continuous .score-jump-control { display: grid; grid-column: 1 / -1; grid-template-columns: auto minmax(0, 1fr); }
+  .score-player-controls--continuous .score-jump-control select { width: 100%; min-width: 0; }
+  .score-player-controls--continuous .score-auto-follow, .score-player-controls--continuous .score-follow-position { grid-column: 1 / -1; }
   .score-player-controls .button { width: 100%; justify-content: center; }
   .score-speed-control { justify-content: space-between; }
   .score-player-viewport { overflow-x: hidden; }
+  .score-measure-backdrop { align-items: end; padding: 0; }
+  .score-measure-menu { width: 100%; max-height: min(82dvh, 620px); overflow-y: auto; gap: 11px; padding: 22px 18px calc(20px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; }
+  .score-measure-menu h3 { font-size: 22px; }
   .score-player-notation svg { max-width: 100%; }
   .practice-score-head { align-items: flex-start; }
   .practice-score-head h4 { font-size: 18px; }
