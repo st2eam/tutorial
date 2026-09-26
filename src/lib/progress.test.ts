@@ -1,16 +1,22 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { importer } from '@coderline/alphatab'
+import { importer, midi } from '@coderline/alphatab'
 import { CHORDS, SONGS, STAGES, FINGERSTYLE_STAGES } from '../data/course'
 import { CATEGORIES, COURSES, GUIDED_COURSES, SONG_COURSES, SKILLS } from '../data/catalog'
 import { COURSE_SCORE_MANIFEST } from '../data/score-manifest'
 import { getCastleLessonStagesForBar, getRouteBars, getTaskRouteIndexes, getTaskScoreBars, makeScorePages } from '../data/score-mapping'
-import { CASTLE_SCORE_REVISION, currentGuidedLesson, currentTask, emptyProgress, getGuidedProgress, getSongProgress, isGuidedCourseCompleted, isSongCompleted, markSongRoute, recordFeedback, recordGuidedFeedback, startGuidedCourse, startSong, validateProgressBackup } from './progress'
+import { currentGuidedLesson, currentTask, emptyProgress, getGuidedProgress, getSongProgress, isGuidedCourseCompleted, isSongCompleted, markSongRoute, recordFeedback, recordGuidedFeedback, startGuidedCourse, startSong, validateProgressBackup } from './progress'
 
 const song = SONGS[0]
 
 describe('歌曲专属课程内容', () => {
+  it('旧版天空之城的路线与 alphaTab 实际反复及结尾顺序一致', () => {
+    const score = importer.ScoreLoader.loadScoreFromBytes(readFileSync(resolve(process.cwd(), 'public/scores/castle-in-the-sky.musicxml')))
+    const generator = new midi.MidiFileGenerator(score, null, new midi.AlphaSynthMidiFileHandler(new midi.MidiFile()))
+    generator.generate()
+    expect(generator.tickLookup.masterBars.map(bar => bar.masterBar.index + 1)).toEqual(getRouteBars('castle-in-the-sky'))
+  })
   it('七首歌均保留稳定的八阶段任务与可选参考来源', () => {
     for (const course of SONGS) {
       expect(course.tasks).toHaveLength(STAGES.length)
@@ -168,7 +174,7 @@ describe('歌曲专属课程内容', () => {
 })
 
 describe('学习进度规则', () => {
-  it('只重置旧版天空之城进度并保留其他课程与历史记录', () => {
+  it('导入旧版备份时保留天空之城与其他课程的历史进度', () => {
     const sky = SONGS.find((item) => item.id === 'castle-in-the-sky')!
     const other = SONGS.find((item) => item.id === 'always-with-me')!
     const started = startSong(emptyProgress(), sky)
@@ -183,13 +189,10 @@ describe('学习进度规则', () => {
       },
       history,
     }
-    const migrated = validateProgressBackup({ app: 'shiyi', version: 2, exportedAt: new Date().toISOString(), data: oldData })!
-    expect(migrated.courses[sky.id].currentTaskId).toBe(sky.tasks[0].id)
-    expect(migrated.courses[sky.id].completedTaskIds).toEqual([])
-    expect(migrated.courses[sky.id].completionChecks).toEqual([])
-    expect(migrated.courses[sky.id].scoreRevision).toBe(CASTLE_SCORE_REVISION)
-    expect(migrated.courses[other.id]).toEqual(otherProgress)
-    expect(migrated.history).toEqual(history)
+    const restored = validateProgressBackup({ app: 'shiyi', version: 2, exportedAt: new Date().toISOString(), data: oldData })!
+    expect(restored.courses[sky.id]).toEqual(oldData.courses[sky.id])
+    expect(restored.courses[other.id]).toEqual(otherProgress)
+    expect(restored.history).toEqual(history)
   })
 
   it('顺利完成后解锁下一步', () => {
@@ -270,9 +273,33 @@ describe('技能目录与通用步骤课程', () => {
     expect(CATEGORIES.map((category) => category.id)).toContain('music')
     expect(SKILLS.find((skill) => skill.id === 'ukulele')?.categoryId).toBe('music')
     expect(SONG_COURSES).toHaveLength(7)
-    expect(COURSES).toHaveLength(7)
+    expect(COURSES).toHaveLength(8)
     expect(SONG_COURSES.every((course) => course.skillId === 'ukulele' && course.categoryId === 'music')).toBe(true)
-    expect(GUIDED_COURSES).toHaveLength(0)
+    expect(GUIDED_COURSES).toHaveLength(1)
+    expect(CATEGORIES.filter((category) => category.id === 'music')).toHaveLength(1)
+    expect(new Set(SKILLS.map((skill) => skill.id)).size).toBe(SKILLS.length)
+    expect(SKILLS.find((skill) => skill.id === 'chromatic-harmonica')?.categoryId).toBe('music')
+  })
+
+  it('半音阶口琴课程能完成八步、保留尤克里里进度并恢复备份', () => {
+    const course = GUIDED_COURSES.find((item) => item.id === 'chromatic-harmonica-castle-in-the-sky')!
+    const song = SONGS.find((item) => item.id === 'castle-in-the-sky')!
+    const ukuleleProgress = recordFeedback(startSong(emptyProgress(), song), song, 'easy')
+    let progress = startGuidedCourse(ukuleleProgress, course)
+    progress = recordGuidedFeedback(progress, course, 'not_mastered')
+    expect(getGuidedProgress(progress, course).simplifiedTaskId).toBe(course.lessons[0].id)
+    expect(getGuidedProgress(progress, course).completedTaskIds).toHaveLength(0)
+    for (const lesson of course.lessons) {
+      expect(currentGuidedLesson(course, getGuidedProgress(progress, course)).id).toBe(lesson.id)
+      progress = recordGuidedFeedback(progress, course, 'easy')
+    }
+    expect(course.lessons).toHaveLength(8)
+    expect(isGuidedCourseCompleted(course, getGuidedProgress(progress, course))).toBe(true)
+    expect(getSongProgress(progress, song)).toEqual(getSongProgress(ukuleleProgress, song))
+    const restored = validateProgressBackup(JSON.parse(JSON.stringify({ app: 'shiyi', version: 2, data: progress })))
+    expect(restored?.activeCourseId).toBe(course.id)
+    expect(restored?.courses).toEqual(progress.courses)
+    expect(restored?.history).toEqual(progress.history)
   })
 
   it('通用课程步骤可独立记录、降级、复习和完成', () => {

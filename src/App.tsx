@@ -5,17 +5,20 @@ import {
   Pause, Play, Plus, RotateCcw, Settings, Shapes, Sparkles, Sprout, Upload, Volume2, X,
 } from 'lucide-react'
 import { CHORDS, findSong, findTask, SONGS, STAGES, FINGERSTYLE_STAGES, CASTLE_STAGES, type ChordName, type Song, type SongKind } from './data/course'
-import { CATEGORIES, findGuidedCourse, findSkill, GUIDED_COURSES, SKILLS, type GuidedCourse } from './data/catalog'
+import { CATEGORIES, findGuidedCourse, findSkill, GUIDED_COURSES, SKILLS, type GuidedCourse, type GuidedReference } from './data/catalog'
 import { COURSE_SCORE_MANIFEST } from './data/score-manifest'
 import { ScorePlayer } from './components/ScorePlayer'
+import { InteractivePractice } from './components/InteractivePractice'
+import { findInteractiveCourse, INTERACTIVE_COURSES } from './data/interactive-course'
 import {
   currentGuidedLesson, currentTask, emptyProgress, exportBackup, getGuidedProgress, getSongProgress,
+  getInteractiveProgress, updateInteractiveProgress,
   isGuidedCourseCompleted, isSongCompleted, loadProgress, markSongRoute, recordFeedback,
   recordGuidedFeedback, saveProgress, startGuidedCourse, startSong, validateProgressBackup,
   type TaskFeedback, type UserProgress,
 } from './lib/progress'
 
-type Page = 'today' | 'practice' | 'skills' | 'skill' | 'songs' | 'song' | 'score' | 'lesson' | 'guided-course' | 'growth' | 'settings'
+type Page = 'today' | 'practice' | 'skills' | 'skill' | 'songs' | 'song' | 'score' | 'lesson' | 'workshop' | 'guided-course' | 'growth' | 'settings'
 const NAV_ITEMS: { id: Page; label: string; Icon: typeof Home }[] = [
   { id: 'today', label: '今日', Icon: Home },
   { id: 'skills', label: '技能', Icon: Shapes },
@@ -177,6 +180,7 @@ function App() {
   const [routeVisit, setRouteVisit] = useState<number>(initialRoute.visit ?? 1)
   const [selectedSkillId, setSelectedSkillId] = useState(initialRoute.page === 'skill' ? initialRoute.id ?? 'ukulele' : 'ukulele')
   const [selectedGuidedCourseId, setSelectedGuidedCourseId] = useState<string | null>(() => initialRoute.page === 'guided-course' ? initialRoute.id ?? null : null)
+  const [selectedWorkshopId, setSelectedWorkshopId] = useState<string | null>(() => initialRoute.page === 'workshop' ? initialRoute.id ?? null : null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [importMessage, setImportMessage] = useState('')
   const [online, setOnline] = useState(navigator.onLine)
@@ -195,6 +199,7 @@ function App() {
       if (route.page === 'song' || route.page === 'score' || route.page === 'lesson') setSelectedSongId(route.id ?? null)
       if (route.page === 'skill') setSelectedSkillId(route.id ?? 'ukulele')
       if (route.page === 'guided-course') setSelectedGuidedCourseId(route.id ?? null)
+      if (route.page === 'workshop') setSelectedWorkshopId(route.id ?? null)
     }
     window.addEventListener('hashchange', sync)
     return () => window.removeEventListener('hashchange', sync)
@@ -236,6 +241,7 @@ function App() {
   const task = activeSong && activeSongProgress ? currentTask(activeSong, activeSongProgress) : undefined
   const guidedLesson = activeGuidedCourse && activeGuidedProgress ? currentGuidedLesson(activeGuidedCourse, activeGuidedProgress) : undefined
   const selectedGuidedCourse = findGuidedCourse(selectedGuidedCourseId)
+  const selectedWorkshop = findInteractiveCourse(selectedWorkshopId)
   const completedSongs = SONGS.filter((song) => {
     const item = getSongProgress(progress, song)
     return isSongCompleted(song, item)
@@ -348,9 +354,11 @@ function App() {
         {page === 'practice' && activeGuidedCourse && activeGuidedProgress && guidedLesson && <GuidedLessonPage course={activeGuidedCourse} item={activeGuidedProgress} lesson={guidedLesson} onBack={() => setPage('today')} onFinish={() => setFeedbackOpen(true)} />}
         {page === 'practice' && !hasStarted && <TodayEmptyPage onSkills={() => setPage('skills')} />}
         {page === 'skills' && <SkillsPage onSkill={onSkill} />}
-        {page === 'skill' && selectedSkillId === 'ukulele' && <><SkillIntro onSongs={() => setPage('songs')} /><SongsPage progress={progress} onSong={onSongCard} completedSongs={completedSongs.length} /></>}
+        {page === 'skill' && selectedSkillId === 'ukulele' && <><SkillIntro onSongs={() => setPage('songs')} /><InteractiveCourseList onOpen={(id) => setRoute('workshop', id)} /><SongsPage progress={progress} onSong={onSongCard} completedSongs={completedSongs.length} /></>}
         {page === 'skill' && selectedSkillId !== 'ukulele' && <GuidedCoursesPage skill={findSkill(selectedSkillId)} onCourse={onGuidedCourse} />}
-        {page === 'songs' && <SongsPage progress={progress} onSong={onSongCard} completedSongs={completedSongs.length} />}
+        {page === 'songs' && <><InteractiveCourseList onOpen={(id) => setRoute('workshop', id)} /><SongsPage progress={progress} onSong={onSongCard} completedSongs={completedSongs.length} /></>}
+        {page === 'workshop' && selectedWorkshop && <InteractivePractice key={selectedWorkshop.id} course={selectedWorkshop} progress={getInteractiveProgress(progress, selectedWorkshop)} onProgress={(patch) => update(current => updateInteractiveProgress(current, selectedWorkshop, patch))} onBack={() => setRoute('skill', 'ukulele')} />}
+        {page === 'workshop' && !selectedWorkshop && <InteractiveCourseList onOpen={(id) => setRoute('workshop', id)} />}
         {page === 'song' && selectedSong && <SongPage song={selectedSong} progress={progress} onStart={() => beginSong(selectedSong)} onPractice={() => { beginSong(selectedSong); setPage('practice') }} onFullScore={() => setRoute('score', selectedSong.id)} onRoute={(route) => update((current) => markSongRoute(current, selectedSong, route))} />}
         {page === 'song' && !selectedSong && <SongsPage progress={progress} onSong={onSongCard} completedSongs={completedSongs.length} />}
         {page === 'score' && selectedSong?.id === 'castle-in-the-sky' && <FullScorePage song={selectedSong} initialBar={routeBar} initialVisit={routeVisit} onBack={() => setRoute('song', selectedSong.id)} onPractice={() => { beginSong(selectedSong); setPage('practice') }} onOpenLesson={(stage, bar, visit) => setLessonRoute(selectedSong.id, stage, bar, visit)} />}
@@ -382,7 +390,7 @@ function readRoute(): { page: Page; id?: string; lessonStage?: number; bar?: num
   const [rawPage, rawId, rawStage] = routePath.split('/')
   const query = new URLSearchParams(rawQuery)
   if (rawPage === 'songs') return { page: 'skill', id: 'ukulele' }
-  const page = (['today', 'practice', 'skills', 'skill', 'songs', 'song', 'score', 'lesson', 'guided-course', 'growth', 'settings'] as string[]).includes(rawPage) ? rawPage as Page : 'today'
+  const page = (['today', 'practice', 'skills', 'skill', 'songs', 'song', 'score', 'lesson', 'workshop', 'guided-course', 'growth', 'settings'] as string[]).includes(rawPage) ? rawPage as Page : 'today'
   const id = rawId ? decodeURIComponent(rawId) : undefined
   const parsedBar = Number(query.get('bar'))
   const parsedVisit = Number(query.get('visit'))
@@ -397,14 +405,14 @@ function readRoute(): { page: Page; id?: string; lessonStage?: number; bar?: num
 }
 
 function pageLabel(page: Page) {
-  return ({ today: '你的学习节奏', practice: '专注学习', skills: '技能合集', skill: '技能课程', songs: '尤克里里课程', song: '歌曲学习地图', score: '完整曲谱', lesson: '教程预览', 'guided-course': '学习课程', growth: '慢慢积累', settings: '学习空间' })[page]
+  return ({ today: '你的学习节奏', practice: '专注学习', skills: '技能合集', skill: '技能课程', songs: '尤克里里课程', song: '歌曲学习地图', score: '完整曲谱', lesson: '教程预览', workshop: '互动练习', 'guided-course': '学习课程', growth: '慢慢积累', settings: '学习空间' })[page]
 }
 function pageTitle(page: Page, active?: Song, selected?: Song, guided?: GuidedCourse, activeGuided?: GuidedCourse, lessonStage?: number) {
-  return ({ today: active || activeGuided ? '今天，继续一点点' : '今天，学一点什么？', practice: '把这一小步练熟', skills: '从一项感兴趣的技能开始', skill: '从基础开始，慢慢深入', songs: '想学的歌，都在这里', song: selected?.title ?? active?.title ?? '歌曲学习地图', score: selected?.title ?? '完整曲谱', lesson: selected?.tasks[(lessonStage ?? 1) - 1]?.title ?? '教程预览', 'guided-course': guided?.title ?? '开始一门新课程', growth: '每一次练习都算数', settings: '让学习更顺手' })[page]
+  return ({ today: active || activeGuided ? '今天，继续一点点' : '今天，学一点什么？', practice: '把这一小步练熟', skills: '从一项感兴趣的技能开始', skill: '从基础开始，慢慢深入', songs: '想学的歌，都在这里', song: selected?.title ?? active?.title ?? '歌曲学习地图', score: selected?.title ?? '完整曲谱', lesson: selected?.tasks[(lessonStage ?? 1) - 1]?.title ?? '教程预览', workshop: '跟着曲谱练一小段', 'guided-course': guided?.title ?? '开始一门新课程', growth: '每一次练习都算数', settings: '让学习更顺手' })[page]
 }
 
 function Navigation({ page, onSkills }: { page: Page; onSkills: () => void }) {
-  return <nav className="side-nav" aria-label="主导航">{NAV_ITEMS.map(({ id, label, Icon }) => <button key={id} className={page === id || (id === 'skills' && ['skill', 'songs', 'song', 'score', 'lesson', 'guided-course'].includes(page)) ? 'side-nav-item is-active' : 'side-nav-item'} type="button" onClick={id === 'skills' ? onSkills : () => setPage(id)}><Icon size={18} strokeWidth={1.8} /><span>{label}</span>{(page === id || (id === 'skills' && ['skill', 'songs', 'song', 'score', 'lesson', 'guided-course'].includes(page))) && <span className="nav-active-dot" />}</button>)}</nav>
+  return <nav className="side-nav" aria-label="主导航">{NAV_ITEMS.map(({ id, label, Icon }) => <button key={id} className={page === id || (id === 'skills' && ['skill', 'songs', 'song', 'score', 'lesson', 'workshop', 'guided-course'].includes(page)) ? 'side-nav-item is-active' : 'side-nav-item'} type="button" onClick={id === 'skills' ? onSkills : () => setPage(id)}><Icon size={18} strokeWidth={1.8} /><span>{label}</span>{(page === id || (id === 'skills' && ['skill', 'songs', 'song', 'score', 'lesson', 'workshop', 'guided-course'].includes(page))) && <span className="nav-active-dot" />}</button>)}</nav>
 }
 
 function SkillsPage({ onSkill }: { onSkill: (skillId: string) => void }) {
@@ -430,7 +438,7 @@ function SkillsPage({ onSkill }: { onSkill: (skillId: string) => void }) {
 
 function SkillIntro({ onSongs }: { onSongs: () => void }) {
   return <section className="skill-intro">
-    <div><span className="eyebrow">音乐 · 技能</span><h2>尤克里里</h2><p>七门弹唱与指弹课程，从认识指法到完整演奏。</p></div>
+    <div><span className="eyebrow">音乐 · 技能</span><h2>尤克里里</h2><p>先用互动练习学会看谱与动作，再自由选择旧版歌曲内容。</p></div>
     <button className="button button--secondary" type="button" onClick={onSongs}>浏览课程 <ArrowRight size={15} /></button>
   </section>
 }
@@ -450,11 +458,32 @@ function GuidedCoursePage({ course, progress, onStart, onPractice }: { course: G
   const done = isGuidedCourseCompleted(course, item)
   return <div className="page-content guided-detail-page">
     <section className="guided-detail-hero"><span className="eyebrow">{course.category.title} · {course.skill.title}</span><h2>{course.title}</h2><p>{course.description}</p><span className="pill">{course.lessons.length} 个学习步骤</span></section>
+    {course.reference && <GuidedReferenceCard reference={course.reference} />}
     <section className="detail-progress"><div className="detail-progress-head"><div><span className="eyebrow">学习路径</span><h3>从基础开始，逐步完成</h3></div><span>{item.completedTaskIds.length} / {course.lessons.length} 步</span></div><div className="progress-track progress-track--large"><span style={{ width: `${Math.round(item.completedTaskIds.length / course.lessons.length * 100)}%` }} /></div>
       <div className="journey-list">{course.lessons.map((step, index) => { const complete = item.completedTaskIds.includes(step.id); const active = lesson.id === step.id && !complete; return <div key={step.id} className={`journey-item ${complete ? 'is-done' : ''} ${active ? 'is-current' : ''}`}><span className="journey-icon">{complete ? <Check size={15} /> : <span>{String(index + 1).padStart(2, '0')}</span>}</span><div><strong>{step.title}</strong><p>{complete ? '已经完成' : active ? '正在这里' : '接下来学习'}</p></div></div> })}</div>
     </section>
     <div className="detail-actions"><button className="button button--primary" type="button" onClick={started && !done ? onPractice : onStart}>{done ? '再看一遍当前内容' : started ? '继续这一小步' : '从第一步开始'} <ArrowRight size={16} /></button><span>学完一步后，可以记录感受并安排复习。</span></div>
   </div>
+}
+
+function InteractiveCourseList({ onOpen }: { onOpen: (id: string) => void }) {
+  return <section className="section-block interactive-course-list"><div className="section-heading"><div><span className="eyebrow">新互动练习 · 原创曲谱</span><h2>看谱、听示范、分段跟练</h2></div></div><p>从第一个音或第一个和弦开始。下面两段是原创教学练习，不是《天空之城》或其他歌曲的改编。</p><div className="interactive-course-grid">{INTERACTIVE_COURSES.map(course => <button key={course.id} type="button" onClick={() => onOpen(course.id)}><span className="eyebrow">{course.style === 'fingerstyle' ? '指弹' : '弹唱'} · {course.barCount} 小节</span><strong>{course.title}</strong><span>{course.description}</span><span>开始互动练习 <ArrowRight size={15} /></span></button>)}</div></section>
+}
+
+function GuidedReferenceCard({ reference }: { reference: GuidedReference }) {
+  return <section className="lesson-card guided-reference">
+    <h3>{reference.title}</h3>
+    <p>{reference.description}</p>
+    {reference.tables.map((table) => <div className="guided-table-scroll" key={table.caption} role="region" aria-label={table.caption} tabIndex={0}>
+      <table>
+        <caption>{table.caption}</caption>
+        <thead><tr>{table.columns.map((column) => <th key={column} scope="col">{column}</th>)}</tr></thead>
+        <tbody>{table.rows.map((row) => <tr key={row[0]}>{row.map((cell, index) => index === 0 ? <th key={index} scope="row">{cell}</th> : <td key={index}>{cell}</td>)}</tr>)}</tbody>
+      </table>
+    </div>)}
+    <ul>{reference.notes.map((note) => <li key={note}>{note}</li>)}</ul>
+    <div className="guided-reference-sources">{reference.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer">{source.title}<ExternalLink size={14} aria-hidden="true" /></a>)}</div>
+  </section>
 }
 
 function GuidedTodayPage({ course, item, lesson, onContinue, onSkills }: { course: GuidedCourse; item: ReturnType<typeof getGuidedProgress>; lesson: ReturnType<typeof currentGuidedLesson>; onContinue: () => void; onSkills: () => void }) {
@@ -470,8 +499,15 @@ function GuidedLessonPage({ course, item, lesson, onBack, onFinish }: { course: 
   const steps = simplified ? lesson.simplifiedSteps : lesson.steps
   return <div className="page-content practice-page">
     <button className="back-button" type="button" onClick={onBack}><ArrowLeft size={16} /> 返回今日</button>
-    <div className="practice-heading"><span className="eyebrow">{course.skill.title} · 第 {course.lessons.findIndex((step) => step.id === lesson.id) + 1} 步</span><h2>{lesson.title}</h2><p>{lesson.why}</p></div>
+    <div className="practice-heading guided-practice-heading"><span className="eyebrow">{course.skill.title} · 第 {course.lessons.findIndex((step) => step.id === lesson.id) + 1} 步</span><h2>{lesson.title}</h2><p>{lesson.why}</p></div>
+    {simplified && <p className="guided-simplified-note" role="status">这次先练简化版，完成后再回到下一小步。</p>}
+    {lesson.practice && <section className="lesson-card guided-practice-cue" aria-label="本步练习提示">
+      <span className="eyebrow">{simplified ? '简化练习' : '本步练习'}</span><h3>{lesson.practice.title}</h3>
+      {(simplified ? lesson.practice.simplifiedLines : lesson.practice.lines).map((line, index) => <p key={`${index}-${line}`}>{line}</p>)}
+    </section>}
     <section className="lesson-card guided-lesson-card"><h3>现在这样做</h3><ol className="practice-steps">{steps.map((step, index) => <li key={`${index}-${step}`}><span>{String(index + 1).padStart(2, '0')}</span><p>{step}</p></li>)}</ol><div className="lesson-success"><CheckCircle2 size={17} /><span><strong>完成标准</strong>{simplified ? lesson.simplifiedSuccess : lesson.success}</span></div></section>
+    {lesson.practice && <Metronome key={`${lesson.id}-${simplified}`} initialBpm={lesson.practice.bpm} timeSignature="4/4" />}
+    {course.reference && <details className="guided-reference-details"><summary>查看孔位、完整练习短句与来源</summary><GuidedReferenceCard reference={course.reference} /></details>}
     <div className="practice-footer"><span>完成后记录你的感觉</span><button className="button button--primary" type="button" onClick={onFinish}>记录这一步 <ArrowRight size={16} /></button></div>
   </div>
 }
@@ -568,10 +604,10 @@ function SongsPage({ progress, onSong, completedSongs }: { progress: UserProgres
   })
   return <div className="page-content">
     <div className="library-intro"><p>挑一首喜欢的曲目，今天只学下一小步。</p><div className="long-goal"><div className="goal-orbit"><Music2 size={18} /></div><div><strong>尤克里里的阶段目标</strong><span>完整学会 5 首曲目（弹唱或独奏）</span></div><div className="goal-count"><strong>{completedSongs}</strong><span>/ 5</span></div></div></div>
-    <div className="library-heading"><div><span className="eyebrow">现有完整课程</span><h2>{kind === 'singalong' ? '弹唱曲目' : '指弹独奏'}</h2></div><span className="library-total">{sorted.length} 首 <i /> 可学习</span></div>
+    <div className="library-heading"><div><span className="eyebrow">旧版课程 · 内容待逐曲核对</span><h2>{kind === 'singalong' ? '弹唱曲目' : '指弹独奏'}</h2></div><span className="library-total">{sorted.length} 首 <i /> 旧版</span></div>
     <div className="song-kind-tabs" role="tablist" aria-label="筛选曲目类型"><button type="button" role="tab" aria-selected={kind === 'singalong'} className={kind === 'singalong' ? 'is-active' : ''} onClick={() => setKind('singalong')}>弹唱 · 3 首</button><button type="button" role="tab" aria-selected={kind === 'fingerstyle'} className={kind === 'fingerstyle' ? 'is-active' : ''} onClick={() => setKind('fingerstyle')}>指弹 · 4 首</button></div>
     <div className="library-list">{sorted.map((song, index) => <SongCard key={song.id} song={song} progress={progress} onClick={() => onSong(song)} featured={index === 0 && !completedSongs} />)}</div>
-    <p className="library-footnote"><BookOpen size={15} /> 弹唱 3 首 · 指弹 4 首。完整歌曲由你按原曲参考版本确认。</p>
+    <p className="library-footnote"><BookOpen size={15} /> 这七首保留旧版入口与进度；旧版自制音型不代表原曲已完成逐音核对。《天空之城》新版完整编配仍待可靠的全曲旋律与时值参考。</p>
   </div>
 }
 
@@ -583,7 +619,7 @@ function SongPage({ song, progress, onStart, onPractice, onFullScore, onRoute }:
   const stages = song.id === 'castle-in-the-sky' ? CASTLE_STAGES : song.kind === 'fingerstyle' ? FINGERSTYLE_STAGES : STAGES
   return <div className="page-content song-detail-page">
     <div className="detail-hero"><Artwork song={song} large /><div className="detail-meta"><span className="pill">音乐 · 尤克里里 · {song.mood}</span><h2>{song.title}</h2><p>{song.artist} <span>·</span> {song.key} <span>·</span> {song.kind === 'fingerstyle' ? 'High-G 标准调弦' : `课程目标 ${song.bpm} BPM`}</p><p className="detail-intro">{song.intro}</p><div className="detail-links">{song.id === 'castle-in-the-sky' ? song.sourceUrl && <a href={song.sourceUrl} target="_blank" rel="noreferrer" className="listen-link">查看作者相关课程 <ExternalLink size={14} /></a> : <>{song.sourceUrl && <a href={song.sourceUrl} target="_blank" rel="noreferrer" className="listen-link">{song.neteaseTrackId ? '去网易云听原曲' : '打开参考示范'} <ExternalLink size={14} /></a>}<a href={song.scoreUrl} target="_blank" rel="noreferrer" className="listen-link">查看参考曲谱 <ExternalLink size={14} /></a></>}</div><p className="detail-course-note">{song.courseNote}</p></div></div>
-    {song.id === 'castle-in-the-sky' && <section className="castle-score-entry"><div><span className="eyebrow">完整谱 · High-G</span><h3>45 小节 MusicXML 曲谱</h3><p>包含反复和第一／第二结尾，可连续滚动、播放和切换五线谱。</p></div><button className="button button--primary" type="button" onClick={onFullScore}>打开完整谱 <ArrowRight size={16} /></button></section>}
+    {song.id === 'castle-in-the-sky' && <section className="castle-score-entry"><div><span className="eyebrow">旧版转录谱 · 待核对</span><h3>45 小节 MusicXML 转录</h3><p>音符与节奏尚未完成逐项核对，仅供旧版参考；不要将它作为新版完整教学编配。</p></div><button className="button button--primary" type="button" onClick={onFullScore}>查看旧版转录 <ArrowRight size={16} /></button></section>}
     <div className="detail-progress"><div className="detail-progress-head"><div><span className="eyebrow">学习路径</span><h3>{song.kind === 'fingerstyle' ? '从看懂 TAB，到完整独奏' : '从一个和弦，到完整弹唱'}</h3></div><span>{item.completedTaskIds.length} / {song.tasks.length} 步</span></div><div className="progress-track progress-track--large"><span style={{ width: `${Math.round(item.completedTaskIds.length / song.tasks.length * 100)}%` }} /></div>
       <div className="journey-list">{stages.map((stage, index) => {
         const done = item.completedTaskIds.includes(song.tasks[index].id)
@@ -600,7 +636,7 @@ function SongPage({ song, progress, onStart, onPractice, onFullScore, onRoute }:
 function FullScorePage({ song, onBack, onPractice, initialBar, initialVisit, onOpenLesson }: { song: Song; onBack: () => void; onPractice: () => void; initialBar?: number; initialVisit: number; onOpenLesson: (stage: number, bar: number, visit: number) => void }) {
   return <div className="page-content complete-score-page">
     <div className="complete-score-actions"><button className="button button--secondary" type="button" onClick={onBack}><ArrowLeft size={15} />返回歌曲课程</button><button className="button button--secondary" type="button" onClick={onPractice}>继续分段练习 <ArrowRight size={15} /></button></div>
-    <p className="complete-score-intro">High-G · 4/4 · ♩=90 · 45 个印刷小节。反复按谱面记号播放，第 34 小节为第一结尾，第 35 小节为第二结尾。</p>
+    <p className="complete-score-intro">旧版待核对转录：High-G · 4/4 · ♩=90 · 45 个印刷小节。其音符和节奏未经完整核对，暂不作为新版课程的目标成品。</p>
     <ScorePlayer song={song} standalone continuous initialBar={initialBar} initialVisit={initialVisit} onOpenLesson={onOpenLesson} />
   </div>
 }

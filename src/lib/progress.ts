@@ -1,5 +1,6 @@
 import { GUIDED_COURSES, type GuidedCourse, type GuidedLesson } from '../data/catalog'
 import { SONGS, type LessonTask, type Song } from '../data/course'
+import { INTERACTIVE_COURSES, type InteractiveCourse, type PracticeLevel } from '../data/interactive-course'
 
 export type TaskFeedback = 'easy' | 'hard' | 'not_mastered'
 export type HistoryEntry = {
@@ -25,8 +26,17 @@ export type UserProgress = {
   activeCourseId: string | null
   courses: Record<string, CourseProgress>
   history: HistoryEntry[]
+  interactive?: Record<string, InteractiveProgress>
 }
-export type ProgressBackup = { app: 'shiyi'; version: 2; exportedAt: string; data: UserProgress }
+export type InteractiveProgress = {
+  courseVersion: string
+  currentPhraseId: string
+  level: PracticeLevel
+  speed: number
+  masteredPhraseIds: string[]
+  lastStudiedAt: string
+}
+export type ProgressBackup = { app: 'shiyi'; version: 2 | 3; exportedAt: string; data: UserProgress }
 
 export const STORAGE_KEY = 'shiyi-learning-progress-v1'
 export const LEGACY_STORAGE_KEY = 'shiyin-progress-v1'
@@ -39,7 +49,7 @@ export function loadProgress(): UserProgress {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return emptyProgress()
     const parsed: unknown = JSON.parse(raw)
-    return validateProgress(parsed) ? migrateCastleScore(parsed.data) : emptyProgress()
+    return validateProgress(parsed) ? parsed.data : emptyProgress()
   } catch {
     return emptyProgress()
   }
@@ -178,35 +188,29 @@ export function markSongRoute(data: UserProgress, song: Song, route: 'playing' |
 }
 
 export function exportBackup(data: UserProgress): ProgressBackup {
-  return { app: 'shiyi', version: 2, exportedAt: new Date().toISOString(), data }
+  return { app: 'shiyi', version: 3, exportedAt: new Date().toISOString(), data }
 }
 
 export function validateProgressBackup(value: unknown): UserProgress | null {
   if (!value || typeof value !== 'object') return null
   const backup = value as Partial<ProgressBackup>
-  if (backup.app !== 'shiyi' || backup.version !== 2 || !validateProgress({ data: backup.data })) return null
-  return backup.data ? migrateCastleScore(backup.data) : null
+  if (backup.app !== 'shiyi' || (backup.version !== 2 && backup.version !== 3) || !validateProgress({ data: backup.data })) return null
+  return backup.data ?? null
 }
 
-function migrateCastleScore(data: UserProgress): UserProgress {
-  const previous = data.courses['castle-in-the-sky']
-  if (!previous || previous.scoreRevision === CASTLE_SCORE_REVISION) return data
-  const firstTaskId = SONGS.find((song) => song.id === 'castle-in-the-sky')?.tasks[0]?.id
-  if (!firstTaskId) return data
+export function getInteractiveProgress(data: UserProgress, course: InteractiveCourse): InteractiveProgress {
+  const saved = data.interactive?.[course.id]
+  if (saved?.courseVersion === course.version) return saved
+  return { courseVersion: course.version, currentPhraseId: course.phrases[0].id, level: 'melody', speed: 0.7, masteredPhraseIds: [], lastStudiedAt: '' }
+}
+
+export function updateInteractiveProgress(data: UserProgress, course: InteractiveCourse, patch: Partial<InteractiveProgress>): UserProgress {
+  const current = getInteractiveProgress(data, course)
   return {
     ...data,
-    courses: {
-      ...data.courses,
-      'castle-in-the-sky': {
-        currentTaskId: firstTaskId,
-        completedTaskIds: [],
-        reviewTaskId: null,
-        simplifiedTaskId: null,
-        completionChecks: [],
-        lastFeedback: null,
-        lastStudiedAt: '',
-        scoreRevision: CASTLE_SCORE_REVISION,
-      },
+    interactive: {
+      ...data.interactive,
+      [course.id]: { ...current, ...patch, courseVersion: course.version, lastStudiedAt: new Date().toISOString() },
     },
   }
 }
@@ -216,6 +220,17 @@ function validateProgress(value: unknown): value is { data: UserProgress } {
   const data = (value as { data?: Partial<UserProgress> }).data
   const validCourseIds = new Set([...SONGS.map((song) => song.id), ...GUIDED_COURSES.map((course) => course.id)])
   if (!data || data.version !== 2 || !(data.activeCourseId === null || (typeof data.activeCourseId === 'string' && validCourseIds.has(data.activeCourseId))) || !data.courses || typeof data.courses !== 'object' || !Array.isArray(data.history)) return false
+
+  if (data.interactive !== undefined) {
+    if (!data.interactive || typeof data.interactive !== 'object' || Array.isArray(data.interactive)) return false
+    for (const [courseId, rawItem] of Object.entries(data.interactive)) {
+      const course = INTERACTIVE_COURSES.find(candidate => candidate.id === courseId)
+      if (!course || !rawItem || typeof rawItem !== 'object') return false
+      const item = rawItem as Partial<InteractiveProgress>
+      const validPhrase = (id: unknown) => typeof id === 'string' && course.phrases.some(phrase => phrase.id === id)
+      if (typeof item.courseVersion !== 'string' || !validPhrase(item.currentPhraseId) || (item.level !== 'melody' && item.level !== 'full') || typeof item.speed !== 'number' || !Number.isFinite(item.speed) || item.speed < 0.4 || item.speed > 1.25 || !Array.isArray(item.masteredPhraseIds) || !item.masteredPhraseIds.every(validPhrase) || typeof item.lastStudiedAt !== 'string') return false
+    }
+  }
 
   for (const [courseId, rawItem] of Object.entries(data.courses)) {
     if (!validCourseIds.has(courseId) || !rawItem || typeof rawItem !== 'object') return false

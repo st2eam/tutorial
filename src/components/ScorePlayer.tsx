@@ -10,15 +10,22 @@ type MeasureHitTarget = { bar: number; left: number; top: number; width: number;
 type MeasureMenu = { bar: number; visit: number; routeIndex: number }
 const MOBILE_QUERY = '(max-width: 767px)'
 
+function tickRangeForRoute(api: AlphaTabApiType, firstIndex: number, lastIndex: number) {
+  const bars = api.tickCache?.masterBars
+  if (!bars?.length) return null
+  const first = bars[firstIndex]
+  const last = bars[lastIndex]
+  if (!first || !last || firstIndex > lastIndex) return null
+  return { startTick: first.start, endTick: last.end }
+}
+
 function tickRangeForBars(api: AlphaTabApiType, firstBar: number, lastBar: number) {
   const bars = api.score?.masterBars
   if (!bars?.length) return null
   const first = bars[firstBar - 1]
   const last = bars[lastBar - 1]
   if (!first || !last) return null
-  const firstTick = Math.min(first.start, last.start)
-  const lastTick = Math.max(first.start + first.calculateDuration(), last.start + last.calculateDuration())
-  return { startTick: firstTick, endTick: lastTick }
+  return { startTick: Math.min(first.start, last.start), endTick: Math.max(first.start + first.calculateDuration(), last.start + last.calculateDuration()) }
 }
 
 function scrollToScoreBar(viewport: HTMLDivElement | null, api: AlphaTabApiType | null, bar: number) {
@@ -65,7 +72,6 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
   const [soundFontLoading, setSoundFontLoading] = useState(false)
   const soundFontNameRef = useRef<string | null>(null)
   const customSoundFontPendingRef = useRef(false)
-  const pendingSecondEndingRef = useRef(false)
   const [followBar, setFollowBar] = useState<number | null>(null)
   const [selectedBar, setSelectedBar] = useState<number | null>(initialBar ?? null)
   const [measureTargets, setMeasureTargets] = useState<MeasureHitTarget[]>([])
@@ -104,7 +110,6 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
     const api = apiRef.current
     if (!api) return
     api.pause()
-    pendingSecondEndingRef.current = false
     api.playbackRange = null
     api.isLooping = false
     setPlaying(false)
@@ -146,7 +151,7 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
     routeOccurrenceRef.current = { bar: initialBar, index: routeIndex }
     setJumpRouteIndex(routeIndex)
     setSelectedBar(initialBar)
-    const target = api.score.masterBars[initialBar - 1]
+    const target = api.tickCache?.masterBars[routeIndex]
     if (target) api.tickPosition = target.start
   }, [continuous, initialBar, initialVisit, ready, routeBars])
 
@@ -242,29 +247,26 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
       api.playerStateChanged.on((state) => {
         if (disposed) return
         setPlaying(state.state === 1)
-        if (state.stopped && pendingSecondEndingRef.current && api!.score) {
-          pendingSecondEndingRef.current = false
-          const endingStart = api!.score.masterBars[34]
-          const scoreEnd = api!.score.masterBars[44]
-          api!.playbackRange = { startTick: endingStart.start, endTick: scoreEnd.start + scoreEnd.calculateDuration() }
-          api!.isLooping = false
-          api!.tickPosition = endingStart.start
-          api!.play()
-          return
-        }
         if (state.stopped) setFollowBar(null)
       })
       api.playerPositionChanged.on((position) => {
         if (disposed) return
-        const scoreBars = api!.score?.masterBars
-        if (!scoreBars?.length) return
-        let physicalIndex = 0
-        scoreBars.forEach((bar, index) => { if (position.currentTick >= bar.start) physicalIndex = index })
-        const currentBar = physicalIndex + 1
         const lastOccurrence = routeOccurrenceRef.current
+        let routeIndex = 0
+        let currentBar = 1
+        if (song.id === 'castle-in-the-sky') {
+          const playbackBars = api!.tickCache?.masterBars
+          if (!playbackBars?.length) return
+          playbackBars.forEach((bar, index) => { if (position.currentTick >= bar.start) routeIndex = index })
+          currentBar = playbackBars[routeIndex].masterBar.index + 1
+        } else {
+          const scoreBars = api!.score?.masterBars
+          if (!scoreBars?.length) return
+          scoreBars.forEach((bar, index) => { if (position.currentTick >= bar.start) currentBar = index + 1 })
+          routeIndex = lastOccurrence.bar === currentBar ? lastOccurrence.index : routeBars.findIndex((bar, index) => index > lastOccurrence.index && bar === currentBar)
+          if (routeIndex < 0) routeIndex = routeBars.findIndex((bar) => bar === currentBar)
+        }
         const barChanged = lastOccurrence.bar !== currentBar
-        let routeIndex = lastOccurrence.bar === currentBar ? lastOccurrence.index : routeBars.findIndex((bar, index) => index > lastOccurrence.index && bar === currentBar)
-        if (routeIndex < 0) routeIndex = routeBars.findIndex((bar) => bar === currentBar)
         routeOccurrenceRef.current = { bar: currentBar, index: routeIndex }
         setFollowBar(currentBar)
         setJumpRouteIndex(routeIndex)
@@ -338,12 +340,11 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
 
   function playbackTickRange() {
     const api = apiRef.current
+    const playbackBars = api?.tickCache?.masterBars
     if (!api?.score) return null
     if (continuous && !loopRangeEnabled) {
-      const routeIndex = Math.min(jumpRouteIndex, routeBars.length - 1)
-      const firstBar = routeBars[routeIndex] ?? 1
-      const inSecondPass = routeIndex >= 34 && routeIndex <= 65
-      return tickRangeForBars(api, firstBar, inSecondPass ? 33 : manifest.barCount)
+      if (song.id === 'castle-in-the-sky' && playbackBars?.length) return tickRangeForRoute(api, Math.min(jumpRouteIndex, playbackBars.length - 1), playbackBars.length - 1)
+      return tickRangeForBars(api, routeBars[jumpRouteIndex] ?? 1, manifest.barCount)
     }
     const taskMode = mode === 'task' && !standalone
     const routeIndexes = taskMode ? taskRouteIndexes : routeBars.map((_, index) => index)
@@ -353,16 +354,15 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
     const endIndex = loopRangeEnabled ? Math.min(loopEndIndex, lastLoopIndex) : pageEnd
     const firstRouteIndex = routeIndexes[startIndex] ?? 0
     const lastRouteIndex = routeIndexes[endIndex] ?? firstRouteIndex
-    const firstBar = routeBars[firstRouteIndex] ?? 1
-    const lastBar = routeBars[lastRouteIndex] ?? firstBar
-    return tickRangeForBars(api, firstBar, lastBar)
+    return song.id === 'castle-in-the-sky'
+      ? tickRangeForRoute(api, firstRouteIndex, lastRouteIndex)
+      : tickRangeForBars(api, routeBars[firstRouteIndex] ?? 1, routeBars[lastRouteIndex] ?? 1)
   }
 
   function togglePlayback() {
     const api = apiRef.current
     if (!api || !ready) return
     if (playing) {
-      pendingSecondEndingRef.current = false
       api.pause()
       setPlaying(false)
       return
@@ -372,7 +372,6 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
     api.playbackRange = range
     api.isLooping = loopRangeEnabled
     api.tickPosition = range.startTick
-    pendingSecondEndingRef.current = continuous && !loopRangeEnabled && jumpRouteIndex >= 34 && jumpRouteIndex <= 65
     api.play()
   }
 
@@ -448,7 +447,9 @@ export function ScorePlayer({ song, task, bpm, simplified, standalone = false, c
   function playSingleMeasure() {
     const measure = measureMenu
     const api = apiRef.current
-    const range = measure && api ? tickRangeForBars(api, measure.bar, measure.bar) : null
+    const range = measure && api ? song.id === 'castle-in-the-sky'
+      ? tickRangeForRoute(api, measure.routeIndex, measure.routeIndex)
+      : tickRangeForBars(api, measure.bar, measure.bar) : null
     if (!measure || !api || !range || !ready) return
     stopPlayback()
     setLoopRangeEnabled(false)
